@@ -1,24 +1,31 @@
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectsCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
-const r2AccountId = process.env.R2_ACCOUNT_ID;
-const r2AccessKeyId = process.env.R2_ACCESS_KEY_ID;
-const r2SecretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
-const r2BucketName = process.env.R2_BUCKET_NAME;
-const r2PublicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
+// Lazy singleton — avoids build-time throw when R2 secrets are absent
+let _r2Client: S3Client | null = null;
+let _r2BucketName: string | null = null;
 
-if (!r2AccountId || !r2AccessKeyId || !r2SecretAccessKey || !r2BucketName) {
-  throw new Error('Missing R2 environment variables');
+function getR2Client(): { client: S3Client; bucket: string } {
+  if (_r2Client && _r2BucketName) return { client: _r2Client, bucket: _r2BucketName };
+
+  const accountId = process.env.R2_ACCOUNT_ID;
+  const accessKeyId = process.env.R2_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+  const bucketName = process.env.R2_BUCKET_NAME;
+
+  if (!accountId || !accessKeyId || !secretAccessKey || !bucketName) {
+    throw new Error('Missing R2 environment variables');
+  }
+
+  _r2Client = new S3Client({
+    region: 'auto',
+    endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+    credentials: { accessKeyId, secretAccessKey },
+  });
+  _r2BucketName = bucketName;
+
+  return { client: _r2Client, bucket: _r2BucketName };
 }
-
-export const r2Client = new S3Client({
-  region: 'auto',
-  endpoint: `https://${r2AccountId}.r2.cloudflarestorage.com`,
-  credentials: {
-    accessKeyId: r2AccessKeyId,
-    secretAccessKey: r2SecretAccessKey,
-  },
-});
 
 export interface R2UploadOptions {
   contentType?: string;
@@ -30,43 +37,39 @@ export async function uploadToR2(
   body: Buffer | Uint8Array,
   options: R2UploadOptions = {}
 ): Promise<string> {
-  const command = new PutObjectCommand({
-    Bucket: r2BucketName,
+  const { client, bucket } = getR2Client();
+  await client.send(new PutObjectCommand({
+    Bucket: bucket,
     Key: key,
     Body: body,
     ContentType: options.contentType,
     CacheControl: options.cacheControl,
-  });
-
-  await r2Client.send(command);
+  }));
   return key;
 }
 
 export async function getPresignedDownloadUrl(
   key: string,
-  expiresInSeconds: number = 3600
+  expiresInSeconds = 3600
 ): Promise<string> {
-  const command = new GetObjectCommand({
-    Bucket: r2BucketName,
-    Key: key,
+  const { client, bucket } = getR2Client();
+  return getSignedUrl(client, new GetObjectCommand({ Bucket: bucket, Key: key }), {
+    expiresIn: expiresInSeconds,
   });
-
-  return getSignedUrl(r2Client, command, { expiresIn: expiresInSeconds });
 }
 
 export function getPublicUrl(key: string): string {
-  if (!r2PublicUrl) {
-    throw new Error('Missing NEXT_PUBLIC_R2_PUBLIC_URL');
-  }
+  const r2PublicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
+  if (!r2PublicUrl) throw new Error('Missing NEXT_PUBLIC_R2_PUBLIC_URL');
   return `${r2PublicUrl}/${key}`;
 }
 
 export async function deleteFromR2(keys: string[]): Promise<void> {
   const validKeys = keys.filter(Boolean);
   if (validKeys.length === 0) return;
-
-  await r2Client.send(new DeleteObjectsCommand({
-    Bucket: r2BucketName,
+  const { client, bucket } = getR2Client();
+  await client.send(new DeleteObjectsCommand({
+    Bucket: bucket,
     Delete: { Objects: validKeys.map((Key) => ({ Key })) },
   }));
 }
