@@ -1,0 +1,10 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# cron.ts usa apenas fetch nativo + tsx — sem dependências externas
+RUN npm install -g tsx
+
+COPY scripts/cron.ts ./scripts/
+
+CMD ["tsx", "scripts/cron.ts"]

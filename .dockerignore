@@ -1,0 +1,13 @@
+.env*
+.env.local
+node_modules
+.next
+.git
+.github
+*.log
+npm-debug.log*
+README.md
+Dockerfile*
+docker-compose*
+stack.yml
+workers/

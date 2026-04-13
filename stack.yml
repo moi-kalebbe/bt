@@ -1,0 +1,98 @@
+version: "3.8"
+
+services:
+
+  # ── Next.js App ─────────────────────────────────────────────────────────────
+  scrapper:
+    image: ${SCRAPPER_IMAGE:-ghcr.io/moi-kalebbe/scrapper:latest}
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+
+      # Supabase
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-https://zrkktupibgnebhdxofpg.supabase.co}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+
+      # Cloudflare R2
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
+      R2_BUCKET_NAME: ${R2_BUCKET_NAME:-scraper}
+      NEXT_PUBLIC_R2_PUBLIC_URL: ${NEXT_PUBLIC_R2_PUBLIC_URL}
+
+      # Apify
+      APIFY_TOKEN: ${APIFY_TOKEN}
+      APIFY_TIKTOK_ACTOR_IDS: ${APIFY_TIKTOK_ACTOR_IDS}
+      APIFY_YOUTUBE_ACTOR_IDS: ${APIFY_YOUTUBE_ACTOR_IDS}
+
+      # Zernio
+      ZERNIO_API_KEY: ${ZERNIO_API_KEY}
+
+      # Groq (geração de legendas)
+      GROQ_API_KEY: ${GROQ_API_KEY}
+
+      # FFmpeg Worker — aponta para o serviço interno
+      FFMPEG_WORKER_URL: http://scrapper-worker:3001
+
+      # yt-dlp — instalado na imagem via Dockerfile
+      YTDLP_PATH: /usr/local/bin/yt-dlp
+
+    networks:
+      - scrapper-network
+      - MoiKalebbe
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+      placement:
+        constraints:
+          - node.role == manager
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=MoiKalebbe
+        - traefik.http.routers.scrapper.rule=Host(`${SCRAPPER_DOMAIN:-bt.moiseskalebbe.cloud}`)
+        - traefik.http.routers.scrapper.entrypoints=websecure
+        - traefik.http.routers.scrapper.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.scrapper.service=scrapper
+        - traefik.http.services.scrapper.loadbalancer.server.port=3000
+
+  # ── FFmpeg Worker ────────────────────────────────────────────────────────────
+  scrapper-worker:
+    image: ${SCRAPPER_WORKER_IMAGE:-ghcr.io/moi-kalebbe/scrapper-worker:latest}
+    environment:
+      PORT: 3001
+      # R2 — worker precisa fazer upload
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
+      R2_BUCKET_NAME: ${R2_BUCKET_NAME:-scraper}
+      NEXT_PUBLIC_R2_PUBLIC_URL: ${NEXT_PUBLIC_R2_PUBLIC_URL}
+      # Callback para o Next.js app (interno) — nome da variável conforme index.ts
+      CALLBACK_URL: http://scrapper:3000/api/webhooks/process-complete
+    networks:
+      - scrapper-network
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+
+  # ── Cron Runner ──────────────────────────────────────────────────────────────
+  scrapper-cron:
+    image: ${SCRAPPER_CRON_IMAGE:-ghcr.io/moi-kalebbe/scrapper-cron:latest}
+    environment:
+      NEXT_PUBLIC_APP_URL: http://scrapper:3000
+      CRON_SECRET: ${CRON_SECRET:-}
+    networks:
+      - scrapper-network
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+
+networks:
+  scrapper-network:
+    driver: overlay
+  MoiKalebbe:
+    external: true
+    name: MoiKalebbe
