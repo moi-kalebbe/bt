@@ -1,14 +1,11 @@
 /**
- * Local cron runner — pipeline completo.
- * Substitui Vercel Cron / serviço externo durante desenvolvimento local.
- *
- * Uso: npm run cron
+ * Cron runner — pipeline completo Beach Tennis.
  *
  * Jobs:
- *   - Scrape:   a cada 6h
- *   - Ingest:   a cada 30min
- *   - Schedule: diário às 06:00 (seleciona os 2 melhores vídeos do dia)
- *   - Publish:  diário às 08:00 e 18:00
+ *   - 00:00  scrape → ingest → cleanup → schedule  (rotina noturna completa)
+ *   - 08:00  publish (slot manhã)
+ *   - 18:00  publish (slot tarde)
+ *   - a cada 30min  ingest (mantém fila sempre abastecida)
  */
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
@@ -25,31 +22,61 @@ function headers() {
   };
 }
 
-async function call(label: string, path: string, method = 'POST') {
+async function call(label: string, path: string): Promise<unknown> {
   const now = new Date().toLocaleTimeString('pt-BR');
   process.stdout.write(`[${now}] ${label}... `);
   try {
-    const res = await fetch(`${APP_URL}${path}`, { method, headers: headers() });
+    const res = await fetch(`${APP_URL}${path}`, { method: 'POST', headers: headers() });
     const data = await res.json();
-    console.log(res.ok ? '✓' : `✗ HTTP ${res.status}`, JSON.stringify(data).slice(0, 120));
+    console.log(res.ok ? '✓' : `✗ HTTP ${res.status}`, JSON.stringify(data).slice(0, 140));
+    return data;
   } catch (err) {
     console.log('✗ erro:', (err as Error).message);
+    return null;
   }
 }
 
-// ─── Jobs ───────────────────────────────────────────────────────────────────
+// ─── Rotina noturna (00:00) ───────────────────────────────────────────────────
+// Roda em sequência: scrape → aguarda ingest → cleanup → schedule
 
-async function scrape()    { await call('scrape',    '/api/scrape');         }
-async function ingest()    { await call('ingest',    '/api/ingest', 'POST'); }
-async function schedule()  { await call('schedule',  '/api/schedule');       }
-async function publish()   { await call('publish',   '/api/publish/run');    }
+async function nightlyPipeline() {
+  console.log('\n── Rotina noturna iniciada ──────────────────────────────────');
 
-// ─── Scheduler helpers ───────────────────────────────────────────────────────
+  // 1. Scrape — coleta novos vídeos
+  await call('scrape', '/api/scrape');
 
-/** Agenda execução no próximo HH:00 e depois a cada `intervalMs`. */
+  // 2. Ingest — baixa e salva no R2 (pode demorar; tentamos por até 10min)
+  console.log('  Aguardando ingest (até 10min)...');
+  const ingestStart = Date.now();
+  const INGEST_TIMEOUT = 10 * MIN;
+  let ingestOk = false;
+
+  while (Date.now() - ingestStart < INGEST_TIMEOUT) {
+    const result = await call('ingest', '/api/ingest') as { processed?: number } | null;
+    if (result !== null) { ingestOk = true; break; }
+    await new Promise((r) => setTimeout(r, 30_000)); // retry em 30s se falhar
+  }
+
+  if (!ingestOk) {
+    console.log('  ⚠ Ingest não concluiu no tempo esperado, continuando mesmo assim...');
+  }
+
+  // 3. Cleanup — remove não-beach-tennis do Supabase + R2
+  await call('cleanup', '/api/cleanup');
+
+  // 4. Schedule — seleciona os 2 melhores vídeos do dia
+  await call('schedule', '/api/schedule');
+
+  console.log('── Rotina noturna concluída ─────────────────────────────────\n');
+}
+
+async function ingest()   { await call('ingest',   '/api/ingest');       }
+async function publish()  { await call('publish',  '/api/publish/run');  }
+
+// ─── Scheduler helpers ────────────────────────────────────────────────────────
+
 function scheduleAtHours(hours: number[], fn: () => Promise<void>, label: string) {
   const now = new Date();
-
   for (const hour of hours) {
     const next = new Date(now);
     next.setHours(hour, 0, 0, 0);
@@ -59,14 +86,10 @@ function scheduleAtHours(hours: number[], fn: () => Promise<void>, label: string
     const hhmm = `${String(hour).padStart(2, '0')}:00`;
     console.log(`  [${label}] próxima execução às ${hhmm} (em ${Math.round(msUntil / MIN)}min)`);
 
-    setTimeout(() => {
-      fn();
-      setInterval(fn, DAY);
-    }, msUntil);
+    setTimeout(() => { fn(); setInterval(fn, DAY); }, msUntil);
   }
 }
 
-/** Agenda execução imediata e depois a cada `intervalMs`. */
 function scheduleInterval(intervalMs: number, fn: () => Promise<void>, label: string) {
   const mins = Math.round(intervalMs / MIN);
   console.log(`  [${label}] executando agora e a cada ${mins}min`);
@@ -76,19 +99,16 @@ function scheduleInterval(intervalMs: number, fn: () => Promise<void>, label: st
 
 // ─── Bootstrap ───────────────────────────────────────────────────────────────
 
-console.log('\n🎾 Beach Tennis Pipeline — cron local iniciado\n');
+console.log('\n🎾 Beach Tennis Pipeline — cron iniciado\n');
 console.log('Jobs agendados:');
 
-// Scrape: a cada 6h, começa imediatamente
-scheduleInterval(6 * HOUR, scrape, 'scrape');
+// Rotina noturna completa: meia-noite
+scheduleAtHours([0], nightlyPipeline, 'nightly');
 
-// Ingest: a cada 30min, começa imediatamente
+// Ingest contínuo: a cada 30min (mantém fila abastecida durante o dia)
 scheduleInterval(30 * MIN, ingest, 'ingest');
 
-// Schedule (seleção de vídeos): todo dia às 06:00
-scheduleAtHours([6], schedule, 'schedule');
-
-// Publish: todo dia às 08:00 e 18:00
+// Publicação: 08:00 e 18:00
 scheduleAtHours([8, 18], publish, 'publish');
 
 console.log('\nPressione Ctrl+C para parar.\n');
