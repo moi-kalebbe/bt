@@ -2,15 +2,24 @@ const ZERNIO_BASE = 'https://zernio.com/api/v1';
 
 export type ZernioPlatform = 'instagram' | 'facebook' | 'tiktok' | 'youtube';
 
+// Account IDs conectados no Zernio (buscados via GET /accounts)
+const ACCOUNT_IDS: Record<ZernioPlatform, string> = {
+  instagram: '69dd27347dea335c2be735df',
+  tiktok:    '69dd28a87dea335c2be7480e',
+  youtube:   '69dd28f97dea335c2be74bbb',
+  facebook:  '', // não conectado
+};
+
 export async function zernioPost(
   platform: ZernioPlatform,
   mediaUrl: string,
   caption: string
 ): Promise<{ success: boolean; postId?: string; error?: string }> {
   const apiKey = process.env.ZERNIO_API_KEY;
-  if (!apiKey) {
-    return { success: false, error: 'ZERNIO_API_KEY not configured' };
-  }
+  if (!apiKey) return { success: false, error: 'ZERNIO_API_KEY not configured' };
+
+  const accountId = ACCOUNT_IDS[platform];
+  if (!accountId) return { success: false, error: `Platform ${platform} not connected in Zernio` };
 
   const res = await fetch(`${ZERNIO_BASE}/posts`, {
     method: 'POST',
@@ -20,20 +29,24 @@ export async function zernioPost(
     },
     body: JSON.stringify({
       content: caption,
-      platform,
-      media_urls: mediaUrl,
-      publish_now: true,
+      platforms: [{ platform, accountId }],
+      mediaItems: [{ url: mediaUrl, type: 'video' }],
+      status: 'published',
+      scheduledFor: new Date(Date.now() - 1000).toISOString(), // passado = publica agora
     }),
   });
 
   const data = await res.json();
 
-  if (!res.ok || data.error) {
-    return {
-      success: false,
-      error: data.error?.message ?? data.message ?? `HTTP ${res.status}`,
-    };
+  if (!res.ok) {
+    return { success: false, error: data.error ?? data.message ?? `HTTP ${res.status}` };
   }
 
-  return { success: true, postId: data.id ?? data.post_id };
+  // status pode ser 'published', 'pending' (processando) ou 'failed'
+  const postStatus = data.post?.status;
+  if (postStatus === 'failed') {
+    return { success: false, error: data.message ?? 'Publishing failed' };
+  }
+
+  return { success: true, postId: data.post?._id };
 }

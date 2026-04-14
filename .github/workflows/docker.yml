@@ -36,7 +36,7 @@ jobs:
           tags: ${{ env.REGISTRY }}/${{ env.OWNER }}/scrapper:latest
           build-args: |
             NEXT_PUBLIC_SUPABASE_URL=https://zrkktupibgnebhdxofpg.supabase.co
-            NEXT_PUBLIC_R2_PUBLIC_URL=https://scraper.f65028a42190254d5fe7be5131f3b750.r2.dev
+            NEXT_PUBLIC_R2_PUBLIC_URL=https://pub-0eed0550b68f4cc68503c01747ecd16d.r2.dev
 
   build-worker:
     name: FFmpeg Worker
