@@ -133,7 +133,7 @@ export type Database = {
           published_to_facebook?: boolean;
           published_at_instagram?: string | null;
           published_at_facebook?: string | null;
-          selected_for_slot?: string | null;
+          selected_for_slot?: 'morning' | 'midday' | 'evening' | 'night' | null;
           raw_payload?: unknown;
           content_hash?: string | null;
           processing_error?: string | null;
@@ -162,7 +162,7 @@ export type Database = {
           published_to_facebook?: boolean;
           published_at_instagram?: string | null;
           published_at_facebook?: string | null;
-          selected_for_slot?: string | null;
+          selected_for_slot?: 'morning' | 'midday' | 'evening' | 'night' | null;
           raw_payload?: unknown;
           content_hash?: string | null;
           processing_error?: string | null;
