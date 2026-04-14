@@ -8,7 +8,7 @@ type PublishJobInsert = Database['public']['Tables']['publish_jobs']['Insert'];
 export interface CreatePublishJobParams {
   contentItemId: string;
   targetId: string;
-  slot?: 'morning' | 'night';
+  slot?: 'morning' | 'midday' | 'evening' | 'night';
   scheduledFor?: string;
 }
 
