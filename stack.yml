@@ -83,6 +83,7 @@ services:
     environment:
       NEXT_PUBLIC_APP_URL: http://scrapper:3000
       CRON_SECRET: ${CRON_SECRET:-}
+      TZ: America/Sao_Paulo
     networks:
       - scrapper-network
     deploy:

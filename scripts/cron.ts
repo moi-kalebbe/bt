@@ -1,11 +1,14 @@
 /**
  * Cron runner — pipeline completo Beach Tennis.
+ * Todos os horários em horário de Brasília (UTC-3).
  *
  * Jobs:
- *   - 00:00  scrape → ingest → cleanup → schedule  (rotina noturna completa)
- *   - 08:00  publish (slot manhã)
- *   - 18:00  publish (slot tarde)
- *   - a cada 30min  ingest (mantém fila sempre abastecida)
+ *   - 00:00 BRT  scrape → ingest → cleanup → schedule (rotina noturna)
+ *   - 08:00 BRT  publish
+ *   - 11:30 BRT  publish
+ *   - 18:00 BRT  publish
+ *   - 21:30 BRT  publish
+ *   - a cada 30min  ingest contínuo
  */
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
@@ -15,6 +18,9 @@ const MIN = 60 * 1000;
 const HOUR = 60 * MIN;
 const DAY = 24 * HOUR;
 
+// UTC-3 (Brasília) — não muda com horário de verão desde 2019
+const BRT_OFFSET_MS = -3 * HOUR;
+
 function headers() {
   return {
     'Content-Type': 'application/json',
@@ -23,8 +29,8 @@ function headers() {
 }
 
 async function call(label: string, path: string): Promise<unknown> {
-  const now = new Date().toLocaleTimeString('pt-BR');
-  process.stdout.write(`[${now}] ${label}... `);
+  const now = new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+  process.stdout.write(`[${now} BRT] ${label}... `);
   try {
     const res = await fetch(`${APP_URL}${path}`, { method: 'POST', headers: headers() });
     const data = await res.json();
@@ -36,80 +42,68 @@ async function call(label: string, path: string): Promise<unknown> {
   }
 }
 
-// ─── Rotina noturna (00:00) ───────────────────────────────────────────────────
-// Roda em sequência: scrape → aguarda ingest → cleanup → schedule
+// ─── Rotina noturna (00:00 BRT) ──────────────────────────────────────────────
 
 async function nightlyPipeline() {
   console.log('\n── Rotina noturna iniciada ──────────────────────────────────');
-
-  // 1. Scrape — coleta novos vídeos
   await call('scrape', '/api/scrape');
 
-  // 2. Ingest — baixa e salva no R2 (pode demorar; tentamos por até 10min)
   console.log('  Aguardando ingest (até 10min)...');
-  const ingestStart = Date.now();
-  const INGEST_TIMEOUT = 10 * MIN;
-  let ingestOk = false;
-
-  while (Date.now() - ingestStart < INGEST_TIMEOUT) {
-    const result = await call('ingest', '/api/ingest') as { processed?: number } | null;
-    if (result !== null) { ingestOk = true; break; }
-    await new Promise((r) => setTimeout(r, 30_000)); // retry em 30s se falhar
+  const start = Date.now();
+  while (Date.now() - start < 10 * MIN) {
+    const r = await call('ingest', '/api/ingest') as { processed?: number } | null;
+    if (r !== null) break;
+    await new Promise((res) => setTimeout(res, 30_000));
   }
 
-  if (!ingestOk) {
-    console.log('  ⚠ Ingest não concluiu no tempo esperado, continuando mesmo assim...');
-  }
-
-  // 3. Cleanup — remove não-beach-tennis do Supabase + R2
   await call('cleanup', '/api/cleanup');
-
-  // 4. Schedule — seleciona os 2 melhores vídeos do dia
   await call('schedule', '/api/schedule');
-
   console.log('── Rotina noturna concluída ─────────────────────────────────\n');
 }
 
-async function ingest()   { await call('ingest',   '/api/ingest');       }
-async function publish()  { await call('publish',  '/api/publish/run');  }
+async function ingest()  { await call('ingest',  '/api/ingest');      }
+async function publish() { await call('publish', '/api/publish/run'); }
 
 // ─── Scheduler helpers ────────────────────────────────────────────────────────
 
-function scheduleAtHours(hours: number[], fn: () => Promise<void>, label: string) {
-  const now = new Date();
-  for (const hour of hours) {
-    const next = new Date(now);
-    next.setHours(hour, 0, 0, 0);
-    if (next <= now) next.setDate(next.getDate() + 1);
-
-    const msUntil = next.getTime() - now.getTime();
-    const hhmm = `${String(hour).padStart(2, '0')}:00`;
-    console.log(`  [${label}] próxima execução às ${hhmm} (em ${Math.round(msUntil / MIN)}min)`);
-
-    setTimeout(() => { fn(); setInterval(fn, DAY); }, msUntil);
+/** Retorna ms até o próximo HH:MM no fuso de Brasília. */
+function msUntilBRT(hour: number, minute: number): number {
+  const now = Date.now();
+  // Hora atual em BRT
+  const nowBRT = new Date(now + BRT_OFFSET_MS);
+  const target = new Date(nowBRT);
+  target.setUTCHours(hour, minute, 0, 0);
+  if (target.getTime() <= nowBRT.getTime()) {
+    target.setUTCDate(target.getUTCDate() + 1);
   }
+  return target.getTime() - nowBRT.getTime();
+}
+
+function scheduleDaily(hour: number, minute: number, fn: () => Promise<void>, label: string) {
+  const ms = msUntilBRT(hour, minute);
+  const hhmm = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+  console.log(`  [${label}] próxima execução às ${hhmm} BRT (em ${Math.round(ms / MIN)}min)`);
+  setTimeout(() => { fn(); setInterval(fn, DAY); }, ms);
 }
 
 function scheduleInterval(intervalMs: number, fn: () => Promise<void>, label: string) {
-  const mins = Math.round(intervalMs / MIN);
-  console.log(`  [${label}] executando agora e a cada ${mins}min`);
+  console.log(`  [${label}] executando agora e a cada ${Math.round(intervalMs / MIN)}min`);
   fn();
   setInterval(fn, intervalMs);
 }
 
 // ─── Bootstrap ───────────────────────────────────────────────────────────────
 
-console.log('\n🎾 Beach Tennis Pipeline — cron iniciado\n');
+console.log('\n🎾 Beach Tennis Pipeline — cron iniciado (fuso: Brasília UTC-3)\n');
 console.log('Jobs agendados:');
 
-// Rotina noturna completa: meia-noite
-scheduleAtHours([0], nightlyPipeline, 'nightly');
+scheduleDaily(0,  0,  nightlyPipeline, 'nightly');   // 00:00 BRT
+scheduleDaily(8,  0,  publish,         'publish-1');  // 08:00 BRT
+scheduleDaily(11, 30, publish,         'publish-2');  // 11:30 BRT
+scheduleDaily(18, 0,  publish,         'publish-3');  // 18:00 BRT
+scheduleDaily(21, 30, publish,         'publish-4');  // 21:30 BRT
 
-// Ingest contínuo: a cada 30min (mantém fila abastecida durante o dia)
 scheduleInterval(30 * MIN, ingest, 'ingest');
-
-// Publicação: 08:00 e 18:00
-scheduleAtHours([8, 18], publish, 'publish');
 
 console.log('\nPressione Ctrl+C para parar.\n');
 process.stdin.resume();

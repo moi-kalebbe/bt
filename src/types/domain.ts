@@ -12,7 +12,7 @@ export type ContentStatus =
   | 'failed'
   | 'ignored_duplicate';
 
-export type Slot = 'morning' | 'night';
+export type Slot = 'morning' | 'midday' | 'evening' | 'night';
 
 export type ProcessingProfile = 'reels' | 'stories';
 

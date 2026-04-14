@@ -8,34 +8,25 @@ import { supabase } from '@/infra/supabase/client';
 import { scoreContent } from '@/lib/scoring';
 import type { ContentItem, PublishTarget, Slot } from '@/types/domain';
 
-const MORNING_HOUR = 8;
-const NIGHT_HOUR = 18;
+// ─── Slots: 08:00 | 11:30 | 18:00 | 21:30 ───────────────────────────────────
+const SLOTS: { slot: Slot; hour: number; minute: number }[] = [
+  { slot: 'morning', hour: 8,  minute: 0  },
+  { slot: 'midday',  hour: 11, minute: 30 },
+  { slot: 'evening', hour: 18, minute: 0  },
+  { slot: 'night',   hour: 21, minute: 30 },
+];
 
 export interface ScheduleResult {
-  morning: string | null;
-  night: string | null;
-  morningScore: number | null;
-  nightScore: number | null;
+  scheduled: Array<{ slot: Slot; contentId: string; score: number }>;
+  skipped: number;
 }
 
 export async function selectAndScheduleVideos(): Promise<ScheduleResult> {
-  const result: ScheduleResult = {
-    morning: null,
-    night: null,
-    morningScore: null,
-    nightScore: null,
-  };
+  const result: ScheduleResult = { scheduled: [], skipped: 0 };
 
-  const { items: readyVideos } = await findContents({
-    status: 'ready',
-    limit: 100,
-  });
+  const { items: readyVideos } = await findContents({ status: 'ready', limit: 200 });
 
-  if (readyVideos.length === 0) {
-    return result;
-  }
-
-  const scoredVideos = readyVideos
+  const available = readyVideos
     .filter((v) => !v.selected_for_slot)
     .map((video) => ({
       video,
@@ -56,20 +47,16 @@ export async function selectAndScheduleVideos(): Promise<ScheduleResult> {
     }))
     .sort((a, b) => b.score - a.score);
 
-  if (scoredVideos.length >= 1) {
-    const morningVideo = scoredVideos[0];
-    await setContentScheduled(morningVideo.video.id, 'morning');
-    await createPublishJobsForVideo(morningVideo.video, 'morning');
-    result.morning = morningVideo.video.id;
-    result.morningScore = morningVideo.score;
-  }
+  result.skipped = Math.max(0, SLOTS.length - available.length);
 
-  if (scoredVideos.length >= 2) {
-    const nightVideo = scoredVideos[1];
-    await setContentScheduled(nightVideo.video.id, 'night');
-    await createPublishJobsForVideo(nightVideo.video, 'night');
-    result.night = nightVideo.video.id;
-    result.nightScore = nightVideo.score;
+  for (let i = 0; i < SLOTS.length && i < available.length; i++) {
+    const { slot, hour, minute } = SLOTS[i];
+    const { video, score } = available[i];
+
+    await setContentScheduled(video.id, slot);
+    await createPublishJobsForVideo(video, slot, hour, minute);
+
+    result.scheduled.push({ slot, contentId: video.id, score });
   }
 
   return result;
@@ -87,12 +74,14 @@ async function getActiveTargets(): Promise<PublishTarget[]> {
 
 async function createPublishJobsForVideo(
   video: ContentItem,
-  slot: Slot
+  slot: Slot,
+  hour: number,
+  minute: number
 ): Promise<void> {
   const targets = await getActiveTargets();
   if (targets.length === 0) return;
 
-  const scheduledFor = getSlotScheduledTime(slot);
+  const scheduledFor = getSlotTime(hour, minute);
 
   await Promise.all(
     targets.map((target) =>
@@ -106,22 +95,11 @@ async function createPublishJobsForVideo(
   );
 }
 
-function getSlotScheduledTime(slot: Slot): string {
+function getSlotTime(hour: number, minute: number): string {
   const now = new Date();
   const scheduled = new Date(now);
-
-  if (slot === 'morning') {
-    scheduled.setHours(MORNING_HOUR, 0, 0, 0);
-    if (scheduled <= now) {
-      scheduled.setDate(scheduled.getDate() + 1);
-    }
-  } else {
-    scheduled.setHours(NIGHT_HOUR, 0, 0, 0);
-    if (scheduled <= now) {
-      scheduled.setDate(scheduled.getDate() + 1);
-    }
-  }
-
+  scheduled.setHours(hour, minute, 0, 0);
+  if (scheduled <= now) scheduled.setDate(scheduled.getDate() + 1);
   return scheduled.toISOString();
 }
 
@@ -130,16 +108,17 @@ export async function manualSchedule(
   slot: Slot
 ): Promise<{ success: boolean; error?: string }> {
   const content = await findContentById(contentId);
-  if (!content) {
-    return { success: false, error: 'Content not found' };
-  }
-
+  if (!content) return { success: false, error: 'Content not found' };
   if (content.status !== 'ready') {
     return { success: false, error: `Content status must be 'ready', got '${content.status}'` };
   }
 
+  const slotDef = SLOTS.find((s) => s.slot === slot);
+  const hour = slotDef?.hour ?? 8;
+  const minute = slotDef?.minute ?? 0;
+
   await setContentScheduled(contentId, slot);
-  await createPublishJobsForVideo(content, slot);
+  await createPublishJobsForVideo(content, slot, hour, minute);
 
   return { success: true };
 }
