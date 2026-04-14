@@ -27,7 +27,7 @@ export async function selectAndScheduleVideos(): Promise<ScheduleResult> {
   const { items: readyVideos } = await findContents({ status: 'ready', limit: 200 });
 
   const available = readyVideos
-    .filter((v) => !v.selected_for_slot)
+    .filter((v) => !v.selected_for_slot && v.processed_video_r2_key)
     .map((video) => ({
       video,
       score: scoreContent({

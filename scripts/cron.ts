@@ -57,6 +57,7 @@ async function nightlyPipeline() {
   }
 
   await call('cleanup', '/api/cleanup');
+  await call('process-queue', '/api/process-queue');
   await call('schedule', '/api/schedule');
   console.log('── Rotina noturna concluída ─────────────────────────────────\n');
 }
