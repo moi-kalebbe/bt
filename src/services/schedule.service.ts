@@ -1,5 +1,4 @@
 import {
-  findContents,
   setContentScheduled,
   findContentById,
 } from '@/infra/supabase/repositories/content.repository';
@@ -24,10 +23,16 @@ export interface ScheduleResult {
 export async function selectAndScheduleVideos(): Promise<ScheduleResult> {
   const result: ScheduleResult = { scheduled: [], skipped: 0 };
 
-  const { items: readyVideos } = await findContents({ status: 'ready', limit: 200 });
+  const { data: readyVideos } = await supabase
+    .from('content_items')
+    .select('*')
+    .eq('status', 'ready')
+    .is('selected_for_slot', null)
+    .not('processed_video_r2_key', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(200);
 
-  const available = readyVideos
-    .filter((v) => !v.selected_for_slot && v.processed_video_r2_key)
+  const available = (readyVideos ?? [])
     .map((video) => ({
       video,
       score: scoreContent({

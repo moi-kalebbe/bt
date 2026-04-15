@@ -21,10 +21,16 @@ export async function publishVideo(
   try {
     const content = await findContentById(contentId);
     if (!content) {
+      if (publishJobId) {
+        await updatePublishJobStatus(publishJobId, 'failed', undefined, 'Content not found');
+      }
       return { contentId, platform, success: false, error: 'Content not found' };
     }
 
     if (!content.processed_video_r2_key) {
+      if (publishJobId) {
+        await updatePublishJobStatus(publishJobId, 'failed', undefined, 'Processed video not available');
+      }
       return {
         contentId,
         platform,
@@ -83,6 +89,9 @@ export async function publishVideo(
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
+    if (publishJobId) {
+      await updatePublishJobStatus(publishJobId, 'failed', undefined, errorMessage).catch(() => {});
+    }
     return { contentId, platform, success: false, error: errorMessage };
   }
 }
