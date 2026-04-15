@@ -18,6 +18,7 @@ export function VideoCard({ video }: VideoCardProps) {
   const [videoError, setVideoError] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [publishResult, setPublishResult] = useState<'success' | 'error' | null>(null);
+  const needsProcessing = !video.processed_video_r2_key && !!video.original_video_r2_key;
 
   let extractedUrl: string | null = null;
   let extractedVideoUrl: string | null = null;
@@ -222,7 +223,11 @@ export function VideoCard({ video }: VideoCardProps) {
                 <Send className="h-3 w-3" />
               )}
               <span className="ml-1">
-                {publishing ? 'Publicando...' : publishResult === 'success' ? 'Publicado!' : publishResult === 'error' ? 'Erro' : 'Publicar'}
+                {publishing
+                  ? (needsProcessing ? 'Processando...' : 'Publicando...')
+                  : publishResult === 'success' ? 'Publicado!'
+                  : publishResult === 'error' ? 'Erro'
+                  : needsProcessing ? 'Processar e Publicar' : 'Publicar'}
               </span>
             </Button>
           )}

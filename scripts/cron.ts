@@ -9,6 +9,7 @@
  *   - 18:00 BRT  publish
  *   - 21:30 BRT  publish
  *   - a cada 30min  ingest contínuo
+ *   - a cada 5min   process-queue (1 vídeo por vez)
  */
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
@@ -62,8 +63,9 @@ async function nightlyPipeline() {
   console.log('── Rotina noturna concluída ─────────────────────────────────\n');
 }
 
-async function ingest()  { await call('ingest',  '/api/ingest');      }
-async function publish() { await call('publish', '/api/publish/run'); }
+async function ingest()        { await call('ingest',         '/api/ingest');               }
+async function publish()       { await call('publish',        '/api/publish/run');          }
+async function processQueue()  { await call('process-queue',  '/api/process-queue?limit=1'); }
 
 // ─── Scheduler helpers ────────────────────────────────────────────────────────
 
@@ -104,7 +106,8 @@ scheduleDaily(11, 30, publish,         'publish-2');  // 11:30 BRT
 scheduleDaily(18, 0,  publish,         'publish-3');  // 18:00 BRT
 scheduleDaily(21, 30, publish,         'publish-4');  // 21:30 BRT
 
-scheduleInterval(30 * MIN, ingest, 'ingest');
+scheduleInterval(30 * MIN, ingest,       'ingest');
+scheduleInterval(5  * MIN, processQueue, 'process-queue');
 
 console.log('\nPressione Ctrl+C para parar.\n');
 process.stdin.resume();

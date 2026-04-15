@@ -12,12 +12,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const limitParam = request.nextUrl.searchParams.get('limit');
+  const limit = limitParam ? Math.min(parseInt(limitParam, 10) || 1, 20) : 20;
+
   const { data: items, error } = await supabase
     .from('content_items')
     .select('id')
     .eq('status', 'ready')
     .is('processed_video_r2_key', null)
-    .limit(20);
+    .order('created_at', { ascending: true })
+    .limit(limit);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!items || items.length === 0) {
