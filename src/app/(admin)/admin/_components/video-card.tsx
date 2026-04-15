@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Sun, Moon, ExternalLink } from 'lucide-react';
+import { Sun, Moon, ExternalLink, Send, Loader2, Check, X } from 'lucide-react';
 import { normalizeStatusLabel, getSlotEmoji, getSlotLabel } from '@/domain/content';
 import type { ContentItem } from '@/types/domain';
 
@@ -16,6 +16,8 @@ export function VideoCard({ video }: VideoCardProps) {
   const router = useRouter();
   const [imgError, setImgError] = useState(false);
   const [videoError, setVideoError] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [publishResult, setPublishResult] = useState<'success' | 'error' | null>(null);
 
   let extractedUrl: string | null = null;
   let extractedVideoUrl: string | null = null;
@@ -41,6 +43,20 @@ export function VideoCard({ video }: VideoCardProps) {
   const videoUrl = video.original_video_r2_key
     ? `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${video.original_video_r2_key}`
     : extractedVideoUrl;
+
+  const handlePublishNow = async () => {
+    setPublishing(true);
+    setPublishResult(null);
+    try {
+      const response = await fetch(`/api/videos/${video.id}/publish`, { method: 'POST' });
+      setPublishResult(response.ok ? 'success' : 'error');
+      if (response.ok) router.refresh();
+    } catch {
+      setPublishResult('error');
+    } finally {
+      setPublishing(false);
+    }
+  };
 
   const handleSchedule = async (slot: 'morning' | 'night') => {
     try {
@@ -186,6 +202,29 @@ export function VideoCard({ video }: VideoCardProps) {
                 <Moon className="h-3 w-3" />
               </Button>
             </>
+          )}
+
+          {(video.status === 'scheduled' || (video.status === 'ready' && video.processed_video_r2_key)) && (
+            <Button
+              variant="outline"
+              size="sm"
+              className={`h-8 flex-1 ${publishResult === 'success' ? 'border-green-500 text-green-600' : publishResult === 'error' ? 'border-red-500 text-red-600' : ''}`}
+              onClick={handlePublishNow}
+              disabled={publishing}
+            >
+              {publishing ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : publishResult === 'success' ? (
+                <Check className="h-3 w-3" />
+              ) : publishResult === 'error' ? (
+                <X className="h-3 w-3" />
+              ) : (
+                <Send className="h-3 w-3" />
+              )}
+              <span className="ml-1">
+                {publishing ? 'Publicando...' : publishResult === 'success' ? 'Publicado!' : publishResult === 'error' ? 'Erro' : 'Publicar'}
+              </span>
+            </Button>
           )}
         </div>
       </div>
