@@ -106,7 +106,7 @@ export default async function SchedulePage() {
                 {!morningContent && !nightContent && (
                   <tr>
                     <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">
-                      Nenhum vídeo agendado. Clique em "Rodar Scheduler" para selecionar.
+                      Nenhum vídeo agendado. Clique em &ldquo;Rodar Scheduler&rdquo; para selecionar.
                     </td>
                   </tr>
                 )}
