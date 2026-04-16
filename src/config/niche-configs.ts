@@ -188,26 +188,7 @@ const aiTechConfig: NicheConfig = {
     youtube: [],
   },
   newsSources: [
-    {
-      name: 'The Verge AI',
-      url: 'https://www.theverge.com/ai-artificial-intelligence/rss/index.xml',
-    },
-    {
-      name: 'TechCrunch AI',
-      url: 'https://techcrunch.com/category/artificial-intelligence/feed/',
-    },
-    {
-      name: 'VentureBeat AI',
-      url: 'https://venturebeat.com/category/ai/feed/',
-    },
-    {
-      name: 'MIT Tech Review',
-      url: 'https://www.technologyreview.com/feed/',
-    },
-    {
-      name: 'Ars Technica',
-      url: 'https://feeds.arstechnica.com/arstechnica/technology-lab',
-    },
+    // ── Portais BR dedicados ──────────────────────────────────────────────
     {
       name: 'Olhar Digital IA',
       url: 'https://olhardigital.com.br/feed/',
@@ -219,16 +200,37 @@ const aiTechConfig: NicheConfig = {
       filterKeyword: 'inteligência artificial',
     },
     {
-      name: 'Google News IA PT',
-      url: 'https://news.google.com/rss/search?q=LLM+IA+automa%C3%A7%C3%A3o+agentes&hl=pt-BR&gl=BR&ceid=BR:pt-419',
+      name: 'TecMundo IA',
+      url: 'https://www.tecmundo.com.br/rss',
+      filterKeyword: 'inteligência artificial',
+    },
+    {
+      name: 'Convergência Digital',
+      url: 'https://www.convergenciadigital.com.br/cgi/cgilua.exe/sys/start.htm?from_info_index=1&tpl=rss_info.htm',
+      filterKeyword: 'inteligência artificial',
+    },
+    // ── Google News PT-BR (agrega todos os portais BR) ────────────────────
+    {
+      name: 'Google News - IA PT',
+      url: 'https://news.google.com/rss/search?q=intelig%C3%AAncia+artificial&hl=pt-BR&gl=BR&ceid=BR:pt-419',
+      needsResolution: true,
+    },
+    {
+      name: 'Google News - LLM automação',
+      url: 'https://news.google.com/rss/search?q=LLM+automa%C3%A7%C3%A3o+agentes+IA&hl=pt-BR&gl=BR&ceid=BR:pt-419',
+      needsResolution: true,
+    },
+    {
+      name: 'Google News - ChatGPT Claude Gemini',
+      url: 'https://news.google.com/rss/search?q=ChatGPT+OR+Claude+OR+Gemini+OR+OpenAI&hl=pt-BR&gl=BR&ceid=BR:pt-419',
       needsResolution: true,
     },
   ],
   firecrawlQueries: [
-    'inteligência artificial LLM modelo linguagem notícia 2026',
-    'automação IA agentes lançamento novo',
-    'OpenAI Anthropic Google Gemini atualização',
-    'IA ferramentas programação Cursor Copilot novidade',
+    'inteligência artificial lançamento novidade Brasil 2026',
+    'LLM automação agentes IA notícia hoje',
+    'OpenAI Anthropic Google IA atualização português',
+    'ferramentas IA programação automação Brasil',
   ],
   zernioAccountIds: {
     instagram: process.env.ZERNIO_INSTAGRAM_ID_AI ?? '',
@@ -264,7 +266,8 @@ Responda apenas com JSON no formato:
 Regras:
 - isRelevant = true SOMENTE se o artigo trata de tópicos técnicos de IA: LLMs, modelos de linguagem, automação com IA, agentes de IA, engenharia de prompt, MLOps, frameworks (LangChain, LlamaIndex, CrewAI, n8n, etc.), APIs de IA (OpenAI, Anthropic, Google Gemini), pesquisa em deep learning, ou ferramentas de desenvolvimento assistido por IA (Cursor, GitHub Copilot, etc.)
 - isRelevant = false para: geração de imagens/vídeos (Midjourney, Sora, DALL-E, Runway), IA em games, IA em entretenimento genérico, robótica física, veículos autônomos, ou conteúdo de hype sem profundidade técnica
-- translatedTitle e translatedSummary só devem ser preenchidos se o idioma NÃO for português
+- isRelevant = false se o artigo estiver em inglês e NÃO tiver relevância direta para o público brasileiro (prefira artigos em português ou que mencionem Brasil/mercado BR)
+- translatedTitle e translatedSummary só devem ser preenchidos se o idioma NÃO for português E isRelevant = true
 - Se já estiver em português, ambos devem ser null`,
 };
 
