@@ -12,11 +12,12 @@ import { revalidatePath } from 'next/cache';
 export const dynamic = 'force-dynamic';
 
 const ENV_CHECKS = [
-  { label: 'Supabase URL',   key: 'NEXT_PUBLIC_SUPABASE_URL' },
-  { label: 'R2 Bucket',      key: 'R2_BUCKET_NAME' },
-  { label: 'Zernio API Key', key: 'ZERNIO_API_KEY' },
-  { label: 'Groq API Key',   key: 'GROQ_API_KEY' },
-  { label: 'Cron Secret',    key: 'CRON_SECRET' },
+  { label: 'Supabase URL',      key: 'NEXT_PUBLIC_SUPABASE_URL' },
+  { label: 'R2 Bucket',         key: 'R2_BUCKET_NAME' },
+  { label: 'Zernio API Key',    key: 'ZERNIO_API_KEY' },
+  { label: 'Groq API Key',      key: 'GROQ_API_KEY' },
+  { label: 'Firecrawl API Key', key: 'FIRECRAWL_API_KEY' },
+  { label: 'Cron Secret',       key: 'CRON_SECRET' },
 ];
 
 export default async function SettingsPage({
@@ -64,6 +65,7 @@ export default async function SettingsPage({
                       const apifyTokenRaw = (formData.get('apify_token') as string).trim();
                       const metaToken = (formData.get('meta_access_token') as string).trim();
                       const metaAccountId = (formData.get('meta_instagram_account_id') as string).trim();
+                      const firecrawlKey = (formData.get('firecrawl_api_key') as string).trim();
                       await upsertNicheSettings(nicheId, {
                         zernio_instagram_id: (formData.get('zernio_instagram_id') as string) || null,
                         zernio_tiktok_id:    (formData.get('zernio_tiktok_id')    as string) || null,
@@ -74,6 +76,7 @@ export default async function SettingsPage({
                         apify_token: apifyTokenRaw || null,
                         meta_access_token: metaToken || null,
                         meta_instagram_account_id: metaAccountId || null,
+                        firecrawl_api_key: firecrawlKey || null,
                       });
                       revalidatePath('/admin/settings');
                     }}
@@ -90,6 +93,23 @@ export default async function SettingsPage({
                           type="password"
                           defaultValue={s?.apify_token ?? ''}
                           placeholder={s?.apify_token ? '••••••••' : 'apify_api_...'}
+                          className="h-8 text-xs font-mono"
+                          autoComplete="new-password"
+                        />
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Firecrawl (Notícias)</p>
+                      <div className="grid grid-cols-[80px_1fr] items-center gap-2">
+                        <span className="text-xs text-muted-foreground">API Key</span>
+                        <Input
+                          name="firecrawl_api_key"
+                          type="password"
+                          defaultValue={s?.firecrawl_api_key ?? ''}
+                          placeholder={s?.firecrawl_api_key ? '••••••••' : 'fc-...'}
                           className="h-8 text-xs font-mono"
                           autoComplete="new-password"
                         />

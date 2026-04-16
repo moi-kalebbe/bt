@@ -34,10 +34,16 @@ interface FirecrawlSearchResponse {
   error?: string;
 }
 
-async function searchFirecrawl(query: string, limit = 8): Promise<FirecrawlSearchResult[]> {
-  const apiKey = process.env.FIRECRAWL_API_KEY;
-  if (!apiKey) return [];
+async function getFirecrawlKey(niche: string): Promise<string | null> {
+  try {
+    const { getNicheSettings } = await import('../infra/supabase/repositories/niche-settings.repository');
+    const settings = await getNicheSettings(niche).catch(() => null);
+    if (settings?.firecrawl_api_key) return settings.firecrawl_api_key;
+  } catch { /* fall through */ }
+  return process.env.FIRECRAWL_API_KEY ?? null;
+}
 
+async function searchFirecrawl(query: string, apiKey: string, limit = 8): Promise<FirecrawlSearchResult[]> {
   const res = await fetch('https://api.firecrawl.dev/v1/search', {
     method: 'POST',
     headers: {
@@ -106,10 +112,16 @@ export async function fetchFirecrawlNews(
     errors: [],
   };
 
+  const apiKey = await getFirecrawlKey(niche);
+  if (!apiKey) {
+    result.errors.push('[Firecrawl] API key não configurada — configure em Admin > Configurações');
+    return result;
+  }
+
   for (const query of queries) {
     let items: FirecrawlSearchResult[];
     try {
-      items = await searchFirecrawl(query);
+      items = await searchFirecrawl(query, apiKey);
     } catch (err) {
       result.errors.push(
         `[Firecrawl] Query "${query}": ${err instanceof Error ? err.message : String(err)}`

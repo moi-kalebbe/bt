@@ -314,6 +314,7 @@ export type Database = {
           apify_token: string | null;
           meta_access_token: string | null;
           meta_instagram_account_id: string | null;
+          firecrawl_api_key: string | null;
           updated_at: string;
         };
         Insert: {
@@ -327,6 +328,7 @@ export type Database = {
           apify_token?: string | null;
           meta_access_token?: string | null;
           meta_instagram_account_id?: string | null;
+          firecrawl_api_key?: string | null;
           updated_at?: string;
         };
         Update: {
@@ -340,6 +342,7 @@ export type Database = {
           apify_token?: string | null;
           meta_access_token?: string | null;
           meta_instagram_account_id?: string | null;
+          firecrawl_api_key?: string | null;
           updated_at?: string;
         };
       };
