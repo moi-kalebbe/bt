@@ -75,7 +75,7 @@ export async function metaInstagramPost(
 }
 
 async function pollContainerStatus(containerId: string, accessToken: string): Promise<string> {
-  const maxAttempts = 24; // 24 × 5s = 2 min
+  const maxAttempts = 60; // 60 × 5s = 5 min
   for (let i = 0; i < maxAttempts; i++) {
     await new Promise((r) => setTimeout(r, 5000));
     const res = await fetch(
