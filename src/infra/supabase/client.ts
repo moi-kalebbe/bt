@@ -63,6 +63,7 @@ export type Database = {
           username: string;
           reason: string | null;
           active: boolean;
+          niche: string;
           created_at: string;
         };
         Insert: {
@@ -71,6 +72,7 @@ export type Database = {
           username: string;
           reason?: string | null;
           active?: boolean;
+          niche?: string;
           created_at?: string;
         };
         Update: {
@@ -79,6 +81,7 @@ export type Database = {
           username?: string;
           reason?: string | null;
           active?: boolean;
+          niche?: string;
           created_at?: string;
         };
       };

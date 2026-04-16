@@ -81,6 +81,7 @@ export interface BlockedAuthor {
   username: string;
   reason: string | null;
   active: boolean;
+  niche: string;
   created_at: string;
 }
 

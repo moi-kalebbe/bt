@@ -1,6 +1,5 @@
 import { findBlockedAuthors, createBlockedAuthor, deleteBlockedAuthor } from '@/infra/supabase/repositories/blocked-authors.repository';
 import { getAllNicheSettings, upsertNicheSettings } from '@/infra/supabase/repositories/niche-settings.repository';
-import { supabase } from '@/infra/supabase/client';
 import { NICHES } from '@/config/niches';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -20,14 +19,19 @@ const ENV_CHECKS = [
   { label: 'Cron Secret',    key: 'CRON_SECRET' },
 ];
 
-export default async function SettingsPage() {
-  const [blockedAuthors, publishTargets, nicheSettingsList] = await Promise.all([
-    findBlockedAuthors(),
-    supabase.from('publish_targets').select().eq('active', true),
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ niche?: string }>;
+}) {
+  const { niche: nicheParam } = await searchParams;
+  const currentNiche = nicheParam ?? 'beach-tennis';
+
+  const [blockedAuthors, nicheSettingsList] = await Promise.all([
+    findBlockedAuthors(undefined, currentNiche),
     getAllNicheSettings().catch(() => []),
   ]);
 
-  const targets = publishTargets.data ?? [];
   const settingsMap = Object.fromEntries(nicheSettingsList.map((s) => [s.niche_id, s]));
 
   return (
@@ -137,13 +141,21 @@ export default async function SettingsPage() {
 
       <Separator />
 
-      {/* ── Demais configurações ─────────────────────────────────────────────── */}
+      {/* ── Autores Bloqueados (por nicho) ───────────────────────────────────── */}
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Blocked Authors */}
-        <Card>
+        <Card className="md:col-span-2">
           <CardHeader>
-            <CardTitle>Autores Bloqueados</CardTitle>
-            <CardDescription>Autores cujos vídeos serão ignorados durante a coleta</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              Autores Bloqueados
+              <Badge variant="outline" className="text-xs font-normal">
+                {NICHES.find(n => n.id === currentNiche)?.icon}{' '}
+                {NICHES.find(n => n.id === currentNiche)?.label}
+              </Badge>
+            </CardTitle>
+            <CardDescription>
+              Autores do nicho <strong>{NICHES.find(n => n.id === currentNiche)?.label}</strong> cujos vídeos serão ignorados durante a coleta.
+              Troque o nicho no seletor do topo para gerenciar outros nichos.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <form
@@ -152,13 +164,15 @@ export default async function SettingsPage() {
                 const source = formData.get('source') as string;
                 const username = formData.get('username') as string;
                 const reason = formData.get('reason') as string;
+                const niche = formData.get('niche') as string;
                 if (source && username) {
-                  await createBlockedAuthor({ source: source as 'tiktok' | 'youtube', username, reason });
+                  await createBlockedAuthor({ source: source as 'tiktok' | 'youtube', username, reason, niche });
                   revalidatePath('/admin/settings');
                 }
               }}
               className="flex gap-2 flex-wrap"
             >
+              <input type="hidden" name="niche" value={currentNiche} />
               <select
                 name="source"
                 aria-label="Fonte"
@@ -200,45 +214,19 @@ export default async function SettingsPage() {
                 </div>
               ))}
               {blockedAuthors.length === 0 && (
-                <p className="py-3 text-center text-sm text-muted-foreground">Nenhum autor bloqueado</p>
+                <p className="py-3 text-center text-sm text-muted-foreground">
+                  Nenhum autor bloqueado para {NICHES.find(n => n.id === currentNiche)?.label}
+                </p>
               )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Publish Targets */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Destinos de Publicação</CardTitle>
-            <CardDescription>Contas ativas para publicação automática</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {targets.map((target) => (
-                <div key={target.id} className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm">
-                  <div className="flex items-center gap-2">
-                    <Badge variant={target.platform === 'instagram' ? 'default' : 'secondary'}>
-                      {target.platform}
-                    </Badge>
-                    <span className="font-medium truncate">{target.account_name}</span>
-                  </div>
-                  <span className="text-xs text-muted-foreground truncate max-w-24 hidden sm:block">
-                    {target.account_identifier}
-                  </span>
-                </div>
-              ))}
-              {targets.length === 0 && (
-                <p className="py-3 text-center text-sm text-muted-foreground">Nenhum destino configurado</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Environment */}
+        {/* Variáveis de Ambiente */}
         <Card>
           <CardHeader>
             <CardTitle>Variáveis de Ambiente</CardTitle>
-            <CardDescription>Credenciais e configurações do sistema</CardDescription>
+            <CardDescription>Credenciais globais do sistema</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">

@@ -8,6 +8,7 @@ export interface CreateBlockedAuthorParams {
   source: ContentSource;
   username: string;
   reason?: string;
+  niche: string;
 }
 
 export async function createBlockedAuthor(
@@ -19,6 +20,7 @@ export async function createBlockedAuthor(
       source: params.source,
       username: params.username.toLowerCase().trim(),
       reason: params.reason,
+      niche: params.niche,
     })
     .select()
     .single();
@@ -28,13 +30,13 @@ export async function createBlockedAuthor(
 }
 
 export async function findBlockedAuthors(
-  source?: ContentSource
+  source?: ContentSource,
+  niche?: string
 ): Promise<BlockedAuthor[]> {
   let query = supabase.from('blocked_authors').select().eq('active', true);
 
-  if (source) {
-    query = query.eq('source', source);
-  }
+  if (source) query = query.eq('source', source);
+  if (niche)  query = query.eq('niche', niche);
 
   const { data, error } = await query;
   if (error) throw error;
@@ -43,18 +45,21 @@ export async function findBlockedAuthors(
 
 export async function isBlocked(
   source: ContentSource,
-  username: string
+  username: string,
+  niche?: string
 ): Promise<boolean> {
   const normalizedUsername = username.toLowerCase().replace('@', '').trim();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('blocked_authors')
     .select('id')
     .eq('source', source)
     .eq('username', normalizedUsername)
-    .eq('active', true)
-    .single();
+    .eq('active', true);
 
+  if (niche) query = query.eq('niche', niche);
+
+  const { data, error } = await query.single();
   if (error && error.code !== 'PGRST116') throw error;
   return data !== null;
 }
