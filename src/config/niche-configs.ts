@@ -30,6 +30,8 @@ export interface NicheConfig {
   videoRejectKeywords: string[];
   blockedAuthors: { tiktok: string[]; youtube: string[] };
   newsSources: NicheRssSource[];
+  /** Queries para busca no Firecrawl (/v1/search) — encontra artigos de qualquer portal */
+  firecrawlQueries: string[];
   newsGroqSystemPrompt: string;
   newsGroqUserPrompt: (title: string, summary: string, content: string) => string;
   /** IDs de conta Zernio para publicação neste nicho */
@@ -76,9 +78,21 @@ const beachTennisConfig: NicheConfig = {
     { name: 'ESPN BR', url: 'https://www.espn.com.br/rss/espn.xml', filterKeyword: 'beach tennis' },
     { name: 'G1 Esportes', url: 'https://g1.globo.com/rss/g1/esportes/', filterKeyword: 'beach tennis' },
     { name: 'Terra Esportes', url: 'https://www.terra.com.br/esportes/rss/', filterKeyword: 'beach tennis' },
+    { name: 'UOL Esporte', url: 'https://esporte.uol.com.br/ultimas/index.xml', filterKeyword: 'beach tennis' },
+    { name: 'Metrópoles', url: 'https://www.metropoles.com/esportes/feed/', filterKeyword: 'beach tennis' },
     {
       name: 'Google News PT',
       url: 'https://news.google.com/rss/search?q=beach+tennis&hl=pt-BR&gl=BR&ceid=BR:pt-419',
+      needsResolution: true,
+    },
+    {
+      name: 'Google News - Circuito BT',
+      url: 'https://news.google.com/rss/search?q=%22circuito+beach+tennis%22&hl=pt-BR&gl=BR&ceid=BR:pt-419',
+      needsResolution: true,
+    },
+    {
+      name: 'Google News - Torneio BT',
+      url: 'https://news.google.com/rss/search?q=%22torneio+beach+tennis%22+OR+%22ranking+beach+tennis%22&hl=pt-BR&gl=BR&ceid=BR:pt-419',
       needsResolution: true,
     },
     {
@@ -86,6 +100,13 @@ const beachTennisConfig: NicheConfig = {
       url: 'https://news.google.com/rss/search?q=%22beach+tennis%22&hl=en-US&gl=US&ceid=US:en',
       needsResolution: true,
     },
+  ],
+  firecrawlQueries: [
+    'beach tennis torneio campeonato resultado 2026',
+    'circuito beach tennis brasileiro classificação',
+    'beach tennis federação estadual notícia',
+    'beach tennis ranking CBT atleta',
+    'notícias beach tennis Brasil hoje',
   ],
   zernioAccountIds: {
     instagram: '69dd27347dea335c2be735df',
@@ -203,6 +224,12 @@ const aiTechConfig: NicheConfig = {
       url: 'https://news.google.com/rss/search?q=LLM+IA+automa%C3%A7%C3%A3o+agentes&hl=pt-BR&gl=BR&ceid=BR:pt-419',
       needsResolution: true,
     },
+  ],
+  firecrawlQueries: [
+    'inteligência artificial LLM modelo linguagem notícia 2026',
+    'automação IA agentes lançamento novo',
+    'OpenAI Anthropic Google Gemini atualização',
+    'IA ferramentas programação Cursor Copilot novidade',
   ],
   zernioAccountIds: {
     instagram: process.env.ZERNIO_INSTAGRAM_ID_AI ?? '',

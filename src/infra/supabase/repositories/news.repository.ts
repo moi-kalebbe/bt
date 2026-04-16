@@ -143,6 +143,16 @@ export async function findNewsByStatus(
   return (data ?? []) as NewsItem[];
 }
 
+export async function clearNewsItems(niche: string): Promise<number> {
+  const { error, count } = await supabase
+    .from('news_items')
+    .delete({ count: 'exact' })
+    .eq('niche', niche);
+
+  if (error) throw error;
+  return count ?? 0;
+}
+
 /**
  * Retorna itens com status 'story_composed' criados hoje no fuso de Brasília (UTC-3).
  * "Hoje BRT" = created_at >= início do dia atual em UTC-3.

@@ -1,192 +1,159 @@
-# Beach Tennis Video Pipeline
+# Content Pipeline — Beach Tennis & IA & Tech
 
-Sistema completo para coleta, armazenamento, processamento e publicação de vídeos de beach tennis.
+Sistema multi-nicho para coleta, processamento e publicação de conteúdo (vídeos e notícias) no Instagram, TikTok e YouTube.
 
 ## Arquitetura
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         VERCEL (Next.js)                        │
-│  ┌──────────────┐  ┌──────────────┐  ┌────────────────────────┐ │
-│  │   Admin UI   │  │   API Routes │  │   BullMQ (Upstash)     │ │
-│  │  (shadcn/ui) │  │  /videos     │  │   scrape → ingest     │ │
-│  │  /admin      │  │  /schedule   │  │   → process → publish  │ │
-│  └──────────────┘  └──────────────┘  └────────────────────────┘ │
-└───────────────────────────┬─────────────────────────────────────┘
-                            │
-        ┌───────────────────┼───────────────────┐
-        ▼                   ▼                   ▼
-┌───────────────┐  ┌───────────────┐  ┌───────────────┐
-│   SUPABASE    │  │   R2 (Raw +   │  │  UPSTASH      │
-│   PostgreSQL  │  │   Processed)  │  │  Redis        │
-└───────────────┘  └───────────────┘  └───────────────┘
+│               Docker Swarm (gerenciado pelo Portainer)          │
+│                                                                 │
+│  ┌──────────────────────────────────┐  ┌──────────────────────┐ │
+│  │       scrapper (Next.js 15)      │  │   ffmpeg-worker      │ │
+│  │  Admin UI · API Routes · Cron    │  │   (processamento)    │ │
+│  └──────────────────────────────────┘  └──────────────────────┘ │
+└──────────┬──────────────────────────────────────┬───────────────┘
+           │                                      │
+   ┌───────▼──────┐  ┌───────────────┐  ┌────────▼──────┐
+   │   SUPABASE   │  │  Cloudflare   │  │  Serviços ext │
+   │  PostgreSQL  │  │  R2 Storage   │  │  Apify/Groq   │
+   └──────────────┘  └───────────────┘  └───────────────┘
 ```
 
 ## Stack
 
-- **Frontend**: Next.js 15, React 19, Tailwind CSS, shadcn/ui
-- **Backend**: Next.js API Routes, TypeScript
+- **Frontend/Backend**: Next.js 15, React 19, TypeScript, Tailwind CSS, shadcn/ui
 - **Database**: Supabase (PostgreSQL)
 - **Storage**: Cloudflare R2
-- **Queue**: Upstash Redis + BullMQ
-- **Processing**: FFmpeg Worker separado
+- **Deploy**: Docker Swarm + Portainer
+- **Scraping**: Apify (TikTok, YouTube), Firecrawl (notícias), RSS
+- **IA**: Groq (Llama 3.3 70B) — curadoria de notícias e geração de legendas
+- **Publicação**: Meta Graph API (primário) + Zernio (fallback)
+- **Processamento de vídeo**: FFmpeg Worker (container separado)
+
+## Nichos
+
+| Nicho | Conta Instagram | Conteúdo |
+|-------|----------------|---------|
+| `beach-tennis` | @dicas.beachtennis | Vídeos TikTok/YT + notícias |
+| `ai-tech` | @ia.automacao | Vídeos TikTok/YT + notícias |
+
+## Pipeline de Notícias
+
+```
+Fetch (RSS + Firecrawl)
+  → Scrape (Readability + Jina Reader fallback)
+  → Curate (Groq IA — filtra relevância)
+  → Compose (story art 1080×1920px com Sharp)
+  → Publish (Meta Graph API → fallback Zernio)
+```
+
+**Cron automático** (em `scripts/cron.ts`) roda às 08h e 20h BRT.
+
+## Pipeline de Vídeos
+
+```
+Scrape Apify (TikTok hashtags / YouTube query)
+  → Download (yt-dlp + thumbnail)
+  → Upload R2
+  → Processar FFmpeg (trilha + formato 9:16)
+  → Publicar (Instagram Reels / TikTok / YouTube Shorts)
+```
 
 ## Configuração
 
 ### 1. Variáveis de Ambiente
 
-Copie `.env.example` para `.env.local` e preencha:
-
 ```bash
 cp .env.example .env.local
 ```
 
-Configure:
-- **Supabase**: URL e Service Role Key
-- **R2**: Account ID, Access Key, Secret Key, Bucket Name
-- **Upstash Redis**: REST URL e Token
-- **Apify**: Token e Actor IDs
+Preencha:
+- **Supabase**: `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
+- **R2**: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`
+- **Apify**: `APIFY_TOKEN`, `APIFY_TOKEN_AI`
+- **Firecrawl**: `FIRECRAWL_API_KEY`
+- **Groq**: `GROQ_API_KEY`
+- **Zernio**: `ZERNIO_API_KEY`
+- **Meta**: configurado via painel admin → Configurações
 
-### 2. Configurar Apify (opcional)
-
-```bash
-npm run cli
-```
-
-Isso vai configurar interativamente os tokens do Apify.
-
-### 3. Instalar Dependências
+### 2. Desenvolvimento local
 
 ```bash
 npm install
+npm run dev           # Next.js em localhost:3000
 ```
 
-### 4. Executar FFmpeg Worker (para processamento)
-
+FFmpeg Worker (opcional para dev):
 ```bash
 cd workers/ffmpeg-worker
 npm install
-npm run dev
+npm run dev           # localhost:3001
 ```
 
-### 5. Iniciar o Projeto
+### 3. Deploy (Docker Swarm)
 
 ```bash
-npm run dev
+docker stack deploy -c docker-compose.yml scrapper
 ```
 
-Acesse http://localhost:3000
+Gerenciar via **Portainer** apontado para o Swarm.
 
 ## Scripts
 
 ```bash
 npm run dev        # Desenvolvimento
 npm run build      # Build de produção
-npm run start      # Iniciar em produção
-npm run lint       # Verificar código
-npm run typecheck  # Verificar tipos
-npm run test       # Executar testes
-npm run cli        # CLI de configuração
+npm run start      # Produção local
+npm run lint       # ESLint
+npm run typecheck  # TypeScript sem emit
 ```
 
-## Estrutura de Pastas
+## Estrutura Principal
 
 ```
 src/
-├── app/                    # Next.js App Router
-│   ├── (admin)/            # Painel administrativo
-│   │   ├── admin/          # Páginas (gallery, schedule, settings)
-│   │   └── _components/    # Componentes reutilizáveis
-│   └── api/                # API Routes
-│       ├── videos/         # CRUD de vídeos
-│       ├── scrape/         # Dispara coleta
-│       ├── schedule/       # Scheduler automático
-│       └── webhooks/       # Webhooks (FFmpeg callback)
-├── components/ui/          # Componentes shadcn/ui
-├── domain/                 # Lógica de domínio pura
-├── infra/                  # Infraestrutura
-│   ├── supabase/           # Cliente e repositórios
-│   ├── r2/                 # Cliente S3-compatible
-│   ├── redis/              # Cliente Upstash Redis
-│   └── apify/              # Cliente Apify
-├── services/               # Casos de uso
-└── lib/                    # Utilitários
+├── app/
+│   ├── (admin)/admin/      # Painel admin (news, gallery, schedule, settings)
+│   └── api/                # API Routes (news/*, videos/*, scrape/*, etc.)
+├── config/
+│   └── niche-configs.ts    # Configuração centralizada por nicho
+├── services/               # Lógica de negócio
+│   ├── news-fetch.service.ts     # RSS + Firecrawl → scrape
+│   ├── news-firecrawl.service.ts # Busca via Firecrawl API
+│   ├── news-curate.service.ts    # Curadoria com Groq
+│   ├── news-compose.service.ts   # Geração de story art
+│   └── news-publish.service.ts   # Publicação Instagram
+├── infra/
+│   ├── supabase/           # Cliente + repositórios
+│   └── r2/                 # Cliente Cloudflare R2
+└── types/domain.ts         # Tipos compartilhados
+scripts/
+└── cron.ts                 # Agendador interno (roda no container)
+workers/
+└── ffmpeg-worker/          # Serviço de processamento de vídeo
 ```
 
-## Fluxo Operacional
-
-### 1. Coleta (Scrape)
-- Executa scrapers do Apify (TikTok e YouTube)
-- Normaliza dados para formato único
-- Aplica blacklist de autores
-- Detecta duplicados por `source_video_id` e hash
-
-### 2. Ingestão (Ingest)
-- Baixa vídeo e thumbnail
-- Faz upload para R2
-- Atualiza status para `uploaded_r2`
-
-### 3. Agendamento (Schedule)
-- Seleção automática por score
-- Define slots de manhã (8h) e noite (18h)
-- Cria jobs de publicação
-
-### 4. Processamento (Process)
-- FFmpeg Worker aplica trilha de fundo
-- Gera versões Reels (9:16) ou Stories (1:1)
-- Upload da versão processada para R2
-
-### 5. Publicação (Publish)
-- Publica via API do Instagram/Facebook
-- Atualiza status para `published`
-
-## API Endpoints
-
-| Endpoint | Método | Descrição |
-|----------|--------|-----------|
-| `GET /api/videos` | GET | Lista vídeos com filtros |
-| `GET /api/videos/[id]` | GET | Detalhes de um vídeo |
-| `POST /api/videos/[id]/schedule` | POST | Agenda para slot |
-| `POST /api/scrape` | POST | Dispara coleta |
-| `POST /api/schedule` | POST | Roda scheduler automático |
-| `GET /api/health` | GET | Health check |
-
-## Status dos Vídeos
+## Status de Notícias
 
 | Status | Descrição |
 |--------|-----------|
-| `discovered` | Encontrado pelo scraper |
-| `filtered_out` | Bloqueado por blacklist |
-| `downloaded` | Baixado localmente |
-| `uploaded_r2` | Enviado para R2 |
-| `ready` | Pronto para agendamento |
-| `scheduled` | Agendado para slot |
-| `processing` | Processando com FFmpeg |
-| `published` | Publicada no destino |
-| `failed` | Erro no processamento |
-| `ignored_duplicate` | Duplicado detectado |
+| `discovered` | Encontrada via RSS/Firecrawl |
+| `scraped` | Conteúdo extraído |
+| `curated` | Aprovada pela IA |
+| `rejected` | Rejeitada pela IA |
+| `story_composed` | Story art gerado |
+| `published` | Publicado no Instagram |
+| `failed` | Erro em alguma etapa |
 
-## Testes
+## API Endpoints (Notícias)
 
-```bash
-npm run test
-```
-
-## Deploy
-
-### Vercel (Frontend + API)
-```bash
-npm run build
-vercel deploy
-```
-
-### FFmpeg Worker (Railway/Render)
-```bash
-cd workers/ffmpeg-worker
-npm run build
-# Deploy no Railway ou Render
-```
-
-## Licença
-
-MIT
+| Endpoint | Método | Descrição |
+|----------|--------|-----------|
+| `/api/news/fetch` | POST | Busca RSS + Firecrawl |
+| `/api/news/curate` | POST | Curadoria com Groq |
+| `/api/news/compose-pending` | POST | Gera story art pendentes |
+| `/api/news/publish-today` | POST | Publica stories do dia |
+| `/api/news/clear` | POST | Limpa banco por nicho |
+| `/api/news/[id]/compose` | POST | Story art de item específico |
+| `/api/news/[id]/publish` | POST | Publica item específico |

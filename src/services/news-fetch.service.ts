@@ -10,70 +10,17 @@ import {
 import { uploadToR2 } from '@/infra/r2/client';
 import { buildNewsImagePath } from '@/infra/r2/paths';
 import { getNicheConfig } from '@/config/niche-configs';
+import { fetchFirecrawlNews, type FetchNewsResult } from './news-firecrawl.service';
 
-export interface FetchNewsResult {
-  discovered: number;
-  duplicates: number;
-  scraped: number;
-  failed: number;
-  errors: string[];
-}
-
-// Caminhos de RSS comuns para tentar nos domínios fonte
-const RSS_PATHS = [
-  '/feed/',
-  '/rss/',
-  '/rss.xml',
-  '/feed.xml',
-  '/feeds/posts/default',
-  '/api/rss',
-  '/noticias/feed/',
-  '/esportes/feed/',
-];
+export type { FetchNewsResult };
 
 const parser = new Parser({
   timeout: 10_000,
   headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ContentBot/1.0)' },
-  customFields: {
-    item: [['source', 'sourceTag']],
-  },
 });
-
-// Cache dos feeds dos domínios fonte (por run)
-const sourceFeedCache = new Map<string, { link: string; title: string }[]>();
-
-// Mapeamento de nomes de fonte (do Google News) para domínios reais
-const SOURCE_DOMAIN_MAP: Record<string, string> = {
-  'g1':                    'g1.globo.com',
-  'globo':                 'g1.globo.com',
-  'terra':                 'terra.com.br',
-  'uol':                   'esporte.uol.com.br',
-  'lance':                 'lance.com.br',
-  'espn':                  'espn.com.br',
-  'tenisbrasil':           'tenisbrasil.com.br',
-  'cbt':                   'cbt.org.br',
-  'btbrasil':              'btbrasil.com.br',
-  'correio braziliense':   'correiobraziliense.com.br',
-  'r7':                    'r7.com',
-  'estadao':               'estadao.com.br',
-  'folha de s.paulo':      'folha.uol.com.br',
-  'metropolitan':          'metropolitan.com.br',
-  'dn':                    'dn.pt',
-  'beach tennis news':     'beachtennis.news',
-  // AI/Tech
-  'the verge':             'theverge.com',
-  'techcrunch':            'techcrunch.com',
-  'venturebeat':           'venturebeat.com',
-  'mit technology review': 'technologyreview.com',
-  'ars technica':          'arstechnica.com',
-  'olhar digital':         'olhardigital.com.br',
-  'canaltech':             'canaltech.com.br',
-  'wired':                 'wired.com',
-};
 
 export async function fetchNicheNews(niche = 'beach-tennis'): Promise<FetchNewsResult> {
   const config = getNicheConfig(niche);
-  sourceFeedCache.clear(); // limpa cache a cada run
 
   const result: FetchNewsResult = {
     discovered: 0,
@@ -113,25 +60,11 @@ export async function fetchNicheNews(niche = 'beach-tennis'): Promise<FetchNewsR
 
         if (source.needsResolution) {
           const googleNewsLink = item.link ?? '';
-          if (!googleNewsLink) {
-            result.failed++;
-            continue;
-          }
+          if (!googleNewsLink) { result.failed++; continue; }
 
-          const sourceTag = (item as unknown as Record<string, unknown>)['sourceTag'] as
-            | { $?: { url?: string } }
-            | string
-            | undefined;
-          const sourceDomain = extractSourceDomain(sourceTag, rawTitle);
+          resolvedUrl = await resolveGoogleNewsUrl(googleNewsLink);
 
-          resolvedUrl = sourceDomain
-            ? await resolveViaSourceRss(sourceDomain, cleanTitle)
-            : null;
-
-          if (!resolvedUrl) {
-            result.failed++;
-            continue;
-          }
+          if (!resolvedUrl) { result.failed++; continue; }
         } else {
           resolvedUrl = item.link ?? item.guid ?? null;
           if (!resolvedUrl || isGoogleOrigin(resolvedUrl)) {
@@ -175,12 +108,40 @@ export async function fetchNicheNews(niche = 'beach-tennis'): Promise<FetchNewsR
     }
   }
 
+  // Firecrawl: busca complementar em portais regionais e nacionais não cobertos pelo RSS
+  if (config.firecrawlQueries?.length) {
+    const fcResult = await fetchFirecrawlNews(niche, config.firecrawlQueries);
+    result.discovered += fcResult.discovered;
+    result.duplicates += fcResult.duplicates;
+    result.scraped    += fcResult.scraped;
+    result.failed     += fcResult.failed;
+    result.errors.push(...fcResult.errors);
+  }
+
   return result;
 }
 
 /** @deprecated Use fetchNicheNews('beach-tennis') */
 export async function fetchBeachTennisNews(): Promise<FetchNewsResult> {
   return fetchNicheNews('beach-tennis');
+}
+
+async function resolveGoogleNewsUrl(googleUrl: string): Promise<string | null> {
+  // Tenta HEAD primeiro (mais rápido, sem baixar body)
+  for (const method of ['HEAD', 'GET'] as const) {
+    try {
+      const res = await fetch(googleUrl, {
+        method,
+        redirect: 'follow',
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ContentBot/1.0)' },
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!isGoogleOrigin(res.url)) return res.url;
+    } catch {
+      // tenta próximo método
+    }
+  }
+  return null;
 }
 
 function isGoogleOrigin(url: string): boolean {
@@ -197,106 +158,6 @@ function isGoogleOrigin(url: string): boolean {
   }
 }
 
-function extractSourceDomain(
-  sourceTag: { $?: { url?: string } } | string | undefined,
-  itemTitle?: string
-): string | null {
-  let raw = '';
-  if (typeof sourceTag === 'object' && sourceTag?.$?.url) {
-    raw = sourceTag.$.url;
-  } else if (typeof sourceTag === 'string') {
-    raw = sourceTag;
-  }
-
-  if (raw && raw.includes('.')) {
-    try {
-      const parsed = new URL(raw.startsWith('http') ? raw : `https://${raw}`);
-      return parsed.hostname;
-    } catch {
-      // fall through
-    }
-  }
-
-  const key = raw.toLowerCase().trim();
-  if (key && SOURCE_DOMAIN_MAP[key]) return SOURCE_DOMAIN_MAP[key];
-
-  if (itemTitle) {
-    const suffix = itemTitle.match(/[-–]\s*([\w.\s]+)\s*$/)?.[1]?.trim();
-    if (suffix) {
-      if (suffix.includes('.')) {
-        try {
-          return new URL(`https://${suffix}`).hostname;
-        } catch { /* fall through */ }
-      }
-      const suffixKey = suffix.toLowerCase();
-      if (SOURCE_DOMAIN_MAP[suffixKey]) return SOURCE_DOMAIN_MAP[suffixKey];
-    }
-  }
-
-  return null;
-}
-
-async function resolveViaSourceRss(domain: string, title: string): Promise<string | null> {
-  if (!sourceFeedCache.has(domain)) {
-    const items = await fetchSourceFeedItems(domain);
-    sourceFeedCache.set(domain, items);
-  }
-
-  const items = sourceFeedCache.get(domain) ?? [];
-  if (items.length === 0) return null;
-
-  const titleWords = title
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .split(/\s+/)
-    .filter((w) => w.length > 3);
-
-  if (titleWords.length < 2) return null;
-
-  for (const feedItem of items) {
-    const feedTitle = feedItem.title
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '');
-
-    const matches = titleWords.filter((w) => feedTitle.includes(w));
-    if (matches.length >= Math.min(3, titleWords.length)) {
-      return feedItem.link;
-    }
-  }
-
-  return null;
-}
-
-async function fetchSourceFeedItems(domain: string): Promise<{ link: string; title: string }[]> {
-  for (const path of RSS_PATHS) {
-    const url = `https://${domain}${path}`;
-    try {
-      const res = await fetch(url, {
-        headers: { 'User-Agent': 'Mozilla/5.0' },
-        signal: AbortSignal.timeout(6_000),
-      });
-      if (!res.ok) continue;
-
-      const ct = res.headers.get('content-type') ?? '';
-      if (!ct.includes('xml') && !ct.includes('rss') && !ct.includes('atom')) continue;
-
-      const xml = await res.text();
-      if (!xml.includes('<item>') && !xml.includes('<entry>')) continue;
-
-      const feed = await parser.parseString(xml);
-      const items = (feed.items ?? [])
-        .map((i) => ({ link: i.link ?? i.guid ?? '', title: i.title ?? '' }))
-        .filter((i) => i.link && i.title);
-
-      if (items.length > 0) return items;
-    } catch {
-      continue;
-    }
-  }
-  return [];
-}
 
 async function scrapeArticle(newsItemId: string, url: string): Promise<boolean> {
   try {
@@ -337,13 +198,28 @@ async function scrapeArticle(newsItemId: string, url: string): Promise<boolean> 
 
     const title = article?.title || ogTitle || null;
 
+    // Jina Reader fallback: quando Readability não extrai conteúdo suficiente
+    let jinaContent: string | null = null;
+    if (!article?.textContent || article.textContent.trim().length < 100) {
+      try {
+        const jinaRes = await fetch(`https://r.jina.ai/${url}`, {
+          headers: { Accept: 'text/plain', 'User-Agent': 'Mozilla/5.0' },
+          signal: AbortSignal.timeout(15_000),
+        });
+        if (jinaRes.ok) {
+          jinaContent = (await jinaRes.text()).slice(0, 20_000) || null;
+        }
+      } catch { /* Jina indisponível, continua sem fallback */ }
+    }
+
     const genericTitles = ['google news', 'google'];
     if (title && genericTitles.includes(title.trim().toLowerCase())) {
       await setNewsStatus(newsItemId, 'failed', 'Página genérica do Google — URL inválida');
       return false;
     }
 
-    const summary = buildSummary(article?.excerpt ?? article?.textContent);
+    const fullContent = article?.textContent?.slice(0, 20_000) ?? jinaContent;
+    const summary = buildSummary(article?.excerpt ?? article?.textContent ?? jinaContent);
 
     let coverR2Key: string | null = null;
     if (ogImage && !isGoogleImage) {
@@ -353,7 +229,7 @@ async function scrapeArticle(newsItemId: string, url: string): Promise<boolean> 
     await updateNewsItem(newsItemId, {
       ...(title ? { title } : {}),
       summary,
-      full_content: article?.textContent?.slice(0, 20_000) ?? null,
+      full_content: fullContent,
       cover_image_url: isGoogleImage ? null : ogImage,
       cover_image_r2_key: coverR2Key,
       scraped_at: new Date().toISOString(),

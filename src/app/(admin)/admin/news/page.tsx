@@ -6,6 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { RefreshCw, Sparkles } from 'lucide-react';
 import { NICHES } from '@/config/niches';
 import type { NewsStatus } from '@/types/domain';
+import { ClearNewsButton } from './clear-news-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -89,6 +90,8 @@ export default async function NewsPage({ searchParams }: PageProps) {
               Buscar Notícias
             </Button>
           </form>
+
+          <ClearNewsButton niche={niche} />
         </div>
       </div>
 
