@@ -33,6 +33,16 @@ export function buildTrackPath(trackId: string): string {
   return `tracks/${trackId}.mp3`;
 }
 
+export function buildNewsImagePath(date: Date, newsId: string): string {
+  const dateStr = format(date, 'yyyy/MM/dd');
+  return `news/covers/${dateStr}/${newsId}.jpg`;
+}
+
+export function buildNewsStoryPath(date: Date, newsId: string): string {
+  const dateStr = format(date, 'yyyy/MM/dd');
+  return `news/stories/${dateStr}/${newsId}.jpg`;
+}
+
 export function parseR2Key(key: string): {
   type: MediaType;
   source?: Source;

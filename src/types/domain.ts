@@ -112,3 +112,31 @@ export interface ProcessingLog {
   payload: unknown;
   created_at: string;
 }
+
+export type NewsStatus =
+  | 'discovered'
+  | 'scraped'
+  | 'story_composed'
+  | 'published'
+  | 'failed';
+
+export interface NewsItem {
+  id: string;
+  title: string;
+  summary: string | null;
+  full_content: string | null;
+  source_url: string;
+  source_name: string;
+  author: string | null;
+  published_at: string | null;
+  scraped_at: string | null;
+  cover_image_url: string | null;
+  cover_image_r2_key: string | null;
+  story_art_r2_key: string | null;
+  status: NewsStatus;
+  published_to_instagram: boolean;
+  published_at_instagram: string | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+}

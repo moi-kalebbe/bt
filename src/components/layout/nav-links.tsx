@@ -2,11 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutGrid, CalendarDays, Settings } from 'lucide-react';
+import { LayoutGrid, CalendarDays, Settings, Newspaper } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const NAV_ITEMS = [
   { href: '/admin', label: 'Vídeos', icon: LayoutGrid },
+  { href: '/admin/news', label: 'Notícias', icon: Newspaper },
   { href: '/admin/schedule', label: 'Agendamento', icon: CalendarDays },
   { href: '/admin/settings', label: 'Configurações', icon: Settings },
 ];
