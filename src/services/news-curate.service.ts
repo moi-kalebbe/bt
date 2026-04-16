@@ -22,10 +22,18 @@ interface CurationResponse {
 }
 
 const MAX_AGE_DAYS = 7;
+// Delay entre chamadas ao Groq para não estourar o rate limit (6000 tokens/min)
+const GROQ_DELAY_MS = 1_500;
 
 function isTooOld(publishedAt: string | null, createdAt: string): boolean {
-  const ref = publishedAt ?? createdAt;
-  const age = Date.now() - new Date(ref).getTime();
+  // Usa published_at se disponível E se for anterior a created_at
+  // (evita casos em que Firecrawl retorna published_at da data de hoje)
+  const candidates = [publishedAt, createdAt].filter(Boolean) as string[];
+  // Pega a data mais antiga entre published_at e created_at
+  const oldest = candidates.reduce((a, b) =>
+    new Date(a).getTime() < new Date(b).getTime() ? a : b
+  );
+  const age = Date.now() - new Date(oldest).getTime();
   return age > MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
 }
 
@@ -42,6 +50,9 @@ export async function curateScrapedNews(niche = 'beach-tennis'): Promise<CurateR
         result.rejected++;
         continue;
       }
+
+      // Throttle: respeita o rate limit do Groq (6000 tokens/min)
+      await new Promise((r) => setTimeout(r, GROQ_DELAY_MS));
 
       const decision = await classifyWithGroq(
         item.title,
@@ -116,6 +127,11 @@ async function classifyWithGroq(
       }),
     });
 
+    if (res.status === 429) {
+      // Rate limit: espera 10s e tenta uma vez mais
+      await new Promise((r) => setTimeout(r, 10_000));
+      return classifyWithGroq(title, summary, fullContent, systemPrompt, userPromptFn);
+    }
     if (!res.ok) {
       console.warn('[curate] Groq error:', res.status, await res.text());
       return null;

@@ -43,12 +43,13 @@ export async function fetchNicheNews(niche = 'beach-tennis'): Promise<FetchNewsR
 
     for (const item of feed.items ?? []) {
       try {
-        // Filtro por palavra-chave (para portais gerais)
+        // Filtro por palavra-chave — insensível a maiúsculas E acentos
         if (source.filterKeyword) {
-          const titleLower = (item.title ?? '').toLowerCase();
-          const descLower = (item.contentSnippet ?? item.summary ?? '').toLowerCase();
-          const kw = source.filterKeyword.toLowerCase();
-          if (!titleLower.includes(kw) && !descLower.includes(kw)) continue;
+          const normalize = (s: string) =>
+            s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          const kw = normalize(source.filterKeyword);
+          if (!normalize(item.title ?? '').includes(kw) &&
+              !normalize(item.contentSnippet ?? item.summary ?? '').includes(kw)) continue;
         }
 
         const rawTitle = item.title ?? '';
