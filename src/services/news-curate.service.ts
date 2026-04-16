@@ -21,6 +21,14 @@ interface CurationResponse {
   translatedSummary: string | null;
 }
 
+const MAX_AGE_DAYS = 7;
+
+function isTooOld(publishedAt: string | null, createdAt: string): boolean {
+  const ref = publishedAt ?? createdAt;
+  const age = Date.now() - new Date(ref).getTime();
+  return age > MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
+}
+
 export async function curateScrapedNews(niche = 'beach-tennis'): Promise<CurateResult> {
   const config = getNicheConfig(niche);
   const items = await findNewsByStatus('scraped', 100, niche);
@@ -28,6 +36,13 @@ export async function curateScrapedNews(niche = 'beach-tennis'): Promise<CurateR
 
   for (const item of items) {
     try {
+      // Rejeita automaticamente artigos antigos (> 7 dias) sem gastar tokens do Groq
+      if (isTooOld(item.published_at, item.created_at)) {
+        await setNewsStatus(item.id, 'rejected');
+        result.rejected++;
+        continue;
+      }
+
       const decision = await classifyWithGroq(
         item.title,
         item.summary,
