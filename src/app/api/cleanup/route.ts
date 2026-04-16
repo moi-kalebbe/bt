@@ -132,16 +132,14 @@ export async function POST(request: NextRequest) {
   }
 
   // Busca itens do nicho ainda não publicados e não descartados
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query = (supabase as any)
+  const { data: items, error } = await supabase
     .from('content_items')
     .select('id, title, description, hashtags, author_username, original_video_r2_key, processed_video_r2_key, thumbnail_r2_key, status')
-    .eq('niche', niche)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .eq('niche' as any, niche)
     .not('status', 'in', '("published","discarded")')
     .order('created_at', { ascending: false })
     .limit(500);
-
-  const { data: items, error } = await query;
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
