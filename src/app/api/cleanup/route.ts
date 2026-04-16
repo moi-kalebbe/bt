@@ -3,7 +3,7 @@ import { supabase } from '@/infra/supabase/client';
 import { deleteFromR2 } from '@/infra/r2/client';
 import { findContents } from '@/infra/supabase/repositories/content.repository';
 
-// ─── Classificação por keywords ──────────────────────────────────────────────
+// ─── Keywords: Beach Tennis ───────────────────────────────────────────────────
 
 const BEACH_TENNIS_POSITIVE = [
   'beach tennis', 'beachtennis', 'beach_tennis', 'bt ', ' bt\n', '#bt',
@@ -11,7 +11,7 @@ const BEACH_TENNIS_POSITIVE = [
   'torneio de beach', 'circuito de beach', 'open de beach',
 ];
 
-const REJECT_KEYWORDS = [
+const BEACH_TENNIS_REJECT = [
   'volleyball', 'volei', 'vôlei', 'vólei', 'futevôlei', 'futvolei',
   'wimbledon', 'roland garros', 'us open', 'australian open',
   'atp tour', 'wta tour', 'hard court', 'clay court', 'grass court',
@@ -21,12 +21,30 @@ const REJECT_KEYWORDS = [
   'natação', 'swimming',
 ];
 
-function classify(item: {
-  title: string | null;
-  description: string | null;
-  hashtags: string[];
-  author_username: string | null;
-}): 'keep' | 'reject' | 'uncertain' {
+// ─── Keywords: IA & Tech ──────────────────────────────────────────────────────
+
+const AI_TECH_POSITIVE = [
+  'llm', 'langchain', 'ai agent', 'aiagent', 'prompt engineering', 'promptengineering',
+  'ai automation', 'aiautomation', 'n8n', 'openai', 'anthropic', 'claude ai', 'claudeai',
+  'chatgpt', 'gemini', 'llmops', 'machine learning', 'deep learning', 'neural network',
+  'vibe coding', 'vibecoding', 'ai programming', 'aiprogramming', 'cursor ai',
+  'github copilot', 'inteligência artificial', 'automação com ia', 'agente de ia',
+  'ai workflow', 'aiworkflow', 'openai api', 'openaiapi', 'fine-tuning', 'rag ',
+  '#llm', '#aiagents', '#promptengineering', '#n8n', '#langchain', '#vibecoding',
+  '#machinelearning', '#deeplearning', '#llmops', '#aiautomation',
+];
+
+const AI_TECH_REJECT = [
+  'beach tennis', 'beachtennis', 'beach_tennis', 'raquete de praia', 'beachtenista',
+  'torneio bt', 'circuito bt', '#beachtennis',
+];
+
+// ─── Classificação por keywords ───────────────────────────────────────────────
+
+function classify(
+  item: { title: string | null; description: string | null; hashtags: string[]; author_username: string | null },
+  niche: string
+): 'keep' | 'reject' | 'uncertain' {
   const text = [
     item.title ?? '',
     item.description ?? '',
@@ -34,27 +52,34 @@ function classify(item: {
     item.author_username ?? '',
   ].join(' ').toLowerCase();
 
-  // Positivo forte → manter
+  if (niche === 'ai-tech') {
+    // Rejeição explícita: conteúdo claramente off-topic (ex: beach tennis)
+    for (const kw of AI_TECH_REJECT) {
+      if (text.includes(kw.toLowerCase())) return 'reject';
+    }
+    // Positivo forte: tem keywords de IA → manter
+    for (const kw of AI_TECH_POSITIVE) {
+      if (text.includes(kw.toLowerCase())) return 'keep';
+    }
+    return 'uncertain';
+  }
+
+  // Padrão: nicho beach-tennis
   for (const kw of BEACH_TENNIS_POSITIVE) {
     if (text.includes(kw.toLowerCase())) return 'keep';
   }
-
-  // Negativo explícito → rejeitar
-  for (const kw of REJECT_KEYWORDS) {
+  for (const kw of BEACH_TENNIS_REJECT) {
     if (text.includes(kw.toLowerCase())) return 'reject';
   }
-
   return 'uncertain';
 }
 
 // ─── Classificação via Groq para casos incertos ───────────────────────────────
 
-async function classifyWithGroq(items: Array<{
-  id: string;
-  title: string | null;
-  description: string | null;
-  hashtags: string[];
-}>): Promise<Map<string, boolean>> {
+async function classifyWithGroq(
+  items: Array<{ id: string; title: string | null; description: string | null; hashtags: string[] }>,
+  niche: string
+): Promise<Map<string, boolean>> {
   const apiKey = process.env.GROQ_API_KEY;
   const result = new Map<string, boolean>();
 
@@ -74,6 +99,16 @@ async function classifyWithGroq(items: Array<{
     })
     .join('\n');
 
+  const isAiTech = niche === 'ai-tech';
+
+  const systemPrompt = isAiTech
+    ? 'Você é um classificador de vídeos. Responda APENAS com JSON: {"results":[{"id":"...","isRelevant":true/false},...]}. Sem explicações.'
+    : 'Você é um classificador de vídeos. Responda APENAS com JSON: {"results":[{"id":"...","isRelevant":true/false},...]}. Sem explicações.';
+
+  const userPrompt = isAiTech
+    ? `Classifique se cada vídeo é de conteúdo técnico de IA: LLMs, automação com IA, agentes de IA, engenharia de prompt, frameworks (LangChain, n8n, CrewAI), APIs de IA, MLOps, vibe coding, ou ferramentas de dev assistido por IA. Responda true apenas se for claramente sobre IA/tech.\n\n${prompt}`
+    : `Classifique se cada vídeo é de Beach Tennis (o esporte jogado na areia com raquetes pequenas e bola de espuma). Responda true apenas se for claramente beach tennis.\n\n${prompt}`;
+
   try {
     const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -85,15 +120,8 @@ async function classifyWithGroq(items: Array<{
         model: 'llama-3.3-70b-versatile',
         temperature: 0,
         messages: [
-          {
-            role: 'system',
-            content:
-              'Você é um classificador de vídeos. Responda APENAS com JSON: {"results":[{"id":"...","isBeachTennis":true/false},...]}. Sem explicações.',
-          },
-          {
-            role: 'user',
-            content: `Classifique se cada vídeo é de Beach Tennis (o esporte jogado na areia com raquetes pequenas e bola de espuma). Responda true apenas se for claramente beach tennis.\n\n${prompt}`,
-          },
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
         ],
       }),
     });
@@ -103,7 +131,7 @@ async function classifyWithGroq(items: Array<{
     const parsed = JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] ?? '{}');
 
     for (const r of parsed.results ?? []) {
-      result.set(r.id, r.isBeachTennis === true);
+      result.set(r.id, r.isRelevant === true);
     }
   } catch {
     // Em caso de falha, mantém tudo (conservador)
@@ -141,7 +169,7 @@ export async function POST(request: NextRequest) {
   const uncertain: typeof items = [];
 
   for (const item of items) {
-    const result = classify(item);
+    const result = classify(item, niche);
     if (result === 'keep') toKeep.push(item.id);
     else if (result === 'reject') toReject.push(item.id);
     else uncertain.push(item);
@@ -151,7 +179,7 @@ export async function POST(request: NextRequest) {
   const BATCH = 20;
   for (let i = 0; i < uncertain.length; i += BATCH) {
     const batch = uncertain.slice(i, i + BATCH);
-    const groqResult = await classifyWithGroq(batch);
+    const groqResult = await classifyWithGroq(batch, niche);
     for (const item of batch) {
       const keep = groqResult.get(item.id) ?? true;
       if (keep) toKeep.push(item.id);

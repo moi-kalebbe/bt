@@ -10,6 +10,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status') as ContentStatus | undefined;
     const author = searchParams.get('author') ?? undefined;
     const slot = searchParams.get('slot') as Slot | null | undefined;
+    const niche = searchParams.get('niche') ?? undefined;
     const limit = parseInt(searchParams.get('limit') ?? '20', 10);
     const offset = parseInt(searchParams.get('offset') ?? '0', 10);
 
@@ -18,6 +19,7 @@ export async function GET(request: NextRequest) {
       status,
       authorUsername: author,
       selectedForSlot: slot,
+      niche,
       limit,
       offset,
     });

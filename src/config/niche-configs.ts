@@ -119,6 +119,7 @@ const aiTechConfig: NicheConfig = {
   ],
   youtubeQuery: 'ai automation tutorial',
   videoRejectKeywords: [
+    // Conteúdo de geração de imagem/vídeo (não técnico)
     'vo3',
     'sora',
     'runway ml',
@@ -138,6 +139,15 @@ const aiTechConfig: NicheConfig = {
     'ai react',
     'dall-e',
     'kling',
+    // Conteúdo claramente off-topic: beach tennis
+    'beach tennis',
+    'beachtennis',
+    'beach_tennis',
+    'raquete de praia',
+    'beachtenista',
+    'btbrasil',
+    'torneio de beach',
+    'circuito de beach',
   ],
   blockedAuthors: {
     tiktok: [],
