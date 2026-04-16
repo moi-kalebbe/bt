@@ -29,7 +29,10 @@ export interface YouTubeScrapeResult {
   datasetId: string;
 }
 
-export async function scrapeYouTubeShorts(query: string): Promise<YouTubeScrapeResult> {
+export async function scrapeYouTubeShorts(
+  query: string,
+  opts?: { token?: string }
+): Promise<YouTubeScrapeResult> {
   // Suporta múltiplos atores separados por vírgula
   const actorIdsEnv =
     process.env.APIFY_YOUTUBE_ACTOR_IDS ?? process.env.APIFY_YOUTUBE_SHORTS_ACTOR_ID;
@@ -38,7 +41,7 @@ export async function scrapeYouTubeShorts(query: string): Promise<YouTubeScrapeR
   }
 
   const actorIds = actorIdsEnv.split(',').map((s) => s.trim()).filter(Boolean);
-  const client = createApifyClient();
+  const client = createApifyClient(opts?.token);
   const allShorts: YouTubeShort[] = [];
   const seenIds = new Set<string>();
 

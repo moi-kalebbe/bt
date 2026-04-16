@@ -3,6 +3,7 @@ import {
   updateNewsItem,
   setNewsStatus,
 } from '@/infra/supabase/repositories/news.repository';
+import { getNicheConfig } from '@/config/niche-configs';
 
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
 
@@ -14,34 +15,39 @@ export interface CurateResult {
 }
 
 interface CurationResponse {
-  isBeachTennis: boolean;
+  isRelevant: boolean;
   language: 'pt' | 'en' | 'es' | 'other';
   translatedTitle: string | null;
   translatedSummary: string | null;
 }
 
-export async function curateScrapedNews(): Promise<CurateResult> {
-  const items = await findNewsByStatus('scraped');
+export async function curateScrapedNews(niche = 'beach-tennis'): Promise<CurateResult> {
+  const config = getNicheConfig(niche);
+  const items = await findNewsByStatus('scraped', 100, niche);
   const result: CurateResult = { curated: 0, rejected: 0, failed: 0, errors: [] };
 
   for (const item of items) {
     try {
-      const decision = await classifyWithGroq(item.title, item.summary, item.full_content);
+      const decision = await classifyWithGroq(
+        item.title,
+        item.summary,
+        item.full_content,
+        config.newsGroqSystemPrompt,
+        config.newsGroqUserPrompt
+      );
 
       if (!decision) {
-        // Groq falhou — mantém scraped para reprocessar depois
         result.failed++;
         result.errors.push(`[${item.id}] Groq sem resposta`);
         continue;
       }
 
-      if (!decision.isBeachTennis) {
+      if (!decision.isRelevant) {
         await setNewsStatus(item.id, 'rejected');
         result.rejected++;
         continue;
       }
 
-      // É Beach Tennis — aplica tradução se necessário
       const patch: Record<string, unknown> = {
         status: 'curated',
         curated_at: new Date().toISOString(),
@@ -66,32 +72,15 @@ export async function curateScrapedNews(): Promise<CurateResult> {
 async function classifyWithGroq(
   title: string,
   summary: string | null,
-  fullContent: string | null
+  fullContent: string | null,
+  systemPrompt: string,
+  userPromptFn: (title: string, summary: string, content: string) => string
 ): Promise<CurationResponse | null> {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) return null;
 
   const contentPreview = (fullContent ?? summary ?? '').slice(0, 600);
-
-  const userMessage = `Analise este artigo de notícia e responda com JSON puro (sem markdown):
-
-Título: ${title}
-Resumo: ${summary ?? '(sem resumo)'}
-Prévia do conteúdo: ${contentPreview}
-
-Responda apenas com JSON no formato:
-{
-  "isBeachTennis": true ou false,
-  "language": "pt" | "en" | "es" | "other",
-  "translatedTitle": "título em português" ou null,
-  "translatedSummary": "resumo em português (máx 400 chars)" ou null
-}
-
-Regras:
-- isBeachTennis = true SOMENTE se o artigo é principalmente sobre o esporte Beach Tennis (o esporte com raquetes jogado na areia)
-- Se isBeachTennis = false, os campos de tradução podem ser null
-- translatedTitle e translatedSummary só devem ser preenchidos se o idioma NÃO for português
-- Se já estiver em português, ambos devem ser null`;
+  const userMessage = userPromptFn(title, summary ?? '(sem resumo)', contentPreview);
 
   try {
     const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -106,11 +95,7 @@ Regras:
         max_tokens: 300,
         response_format: { type: 'json_object' },
         messages: [
-          {
-            role: 'system',
-            content:
-              'Você é um classificador de notícias esportivas. Responda apenas com JSON válido, sem markdown.',
-          },
+          { role: 'system', content: systemPrompt },
           { role: 'user', content: userMessage },
         ],
       }),
@@ -123,8 +108,7 @@ Regras:
 
     const data = await res.json();
     const text: string = data.choices?.[0]?.message?.content ?? '';
-    const parsed = JSON.parse(text) as CurationResponse;
-    return parsed;
+    return JSON.parse(text) as CurationResponse;
   } catch (err) {
     console.warn('[curate] Erro ao chamar Groq:', err);
     return null;

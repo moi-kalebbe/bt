@@ -48,7 +48,10 @@ export interface TikTokScrapeResult {
   datasetId: string;
 }
 
-export async function scrapeTikTok(hashtags: string | string[]): Promise<TikTokScrapeResult> {
+export async function scrapeTikTok(
+  hashtags: string | string[],
+  opts?: { token?: string }
+): Promise<TikTokScrapeResult> {
   // Suporta múltiplos atores separados por vírgula
   const actorIdsEnv =
     process.env.APIFY_TIKTOK_ACTOR_IDS ?? process.env.APIFY_TIKTOK_ACTOR_ID;
@@ -60,7 +63,7 @@ export async function scrapeTikTok(hashtags: string | string[]): Promise<TikTokS
     .map((t) => t.replace('#', ''));
 
   const actorIds = actorIdsEnv.split(',').map((s) => s.trim()).filter(Boolean);
-  const client = createApifyClient();
+  const client = createApifyClient(opts?.token);
   const allVideos: TikTokVideo[] = [];
   const seenIds = new Set<string>();
   const actorErrors: string[] = [];

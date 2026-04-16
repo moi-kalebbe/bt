@@ -9,6 +9,7 @@ export interface CreateNewsParams {
   title: string;
   sourceUrl: string;
   sourceName: string;
+  niche?: string;
   summary?: string | null;
   author?: string | null;
   publishedAt?: string | null;
@@ -17,6 +18,7 @@ export interface CreateNewsParams {
 
 export interface NewsFilters {
   status?: NewsStatus;
+  niche?: string;
   sourceName?: string;
   limit?: number;
   offset?: number;
@@ -25,15 +27,17 @@ export interface NewsFilters {
 export async function createNewsItem(params: CreateNewsParams): Promise<NewsItem> {
   const { data, error } = await supabase
     .from('news_items')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .insert({
       title: params.title,
       source_url: params.sourceUrl,
       source_name: params.sourceName,
+      niche: params.niche ?? 'beach-tennis',
       summary: params.summary ?? null,
       author: params.author ?? null,
       published_at: params.publishedAt ?? null,
       cover_image_url: params.coverImageUrl ?? null,
-    } as NewsInsert)
+    } as any)
     .select()
     .single();
 
@@ -69,6 +73,7 @@ export async function findNewsItems(
   let query = supabase.from('news_items').select('*', { count: 'exact' });
 
   if (filters.status) query = query.eq('status', filters.status);
+  if (filters.niche) query = query.eq('niche', filters.niche);
   if (filters.sourceName) query = query.eq('source_name', filters.sourceName);
 
   query = query
@@ -121,15 +126,19 @@ export async function setNewsPublished(id: string): Promise<NewsItem> {
 /** Retorna todos os itens com o status informado (sem paginação). */
 export async function findNewsByStatus(
   status: NewsStatus,
-  limit = 100
+  limit = 100,
+  niche?: string
 ): Promise<NewsItem[]> {
-  const { data, error } = await supabase
+  let query = supabase
     .from('news_items')
     .select()
     .eq('status', status)
     .order('created_at', { ascending: true })
     .limit(limit);
 
+  if (niche) query = query.eq('niche', niche);
+
+  const { data, error } = await query;
   if (error) throw error;
   return (data ?? []) as NewsItem[];
 }

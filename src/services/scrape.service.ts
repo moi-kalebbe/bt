@@ -6,6 +6,7 @@ import {
   findContentBySourceAndVideoId,
   findContentByHash,
 } from '@/infra/supabase/repositories/content.repository';
+import { getNicheConfig, getApifyToken } from '@/config/niche-configs';
 import type { NormalizedContent, ContentSource } from '@/types/domain';
 
 export interface ScrapeResult {
@@ -19,7 +20,8 @@ export interface ScrapeResult {
 }
 
 export async function runScrape(
-  source: 'tiktok' | 'youtube' | 'both' = 'both'
+  source: 'tiktok' | 'youtube' | 'both' = 'both',
+  niche = 'beach-tennis'
 ): Promise<{
   results: ScrapeResult[];
   total: { collected: number; duplicates: number; blocked: number; queued: number; filteredOut: number };
@@ -27,11 +29,11 @@ export async function runScrape(
   const results: ScrapeResult[] = [];
 
   if (source === 'tiktok' || source === 'both') {
-    results.push(await scrapeAndIngest('tiktok'));
+    results.push(await scrapeAndIngest('tiktok', niche));
   }
 
   if (source === 'youtube' || source === 'both') {
-    results.push(await scrapeAndIngest('youtube'));
+    results.push(await scrapeAndIngest('youtube', niche));
   }
 
   const total = results.reduce(
@@ -48,7 +50,7 @@ export async function runScrape(
   return { results, total };
 }
 
-async function scrapeAndIngest(source: ContentSource): Promise<ScrapeResult> {
+async function scrapeAndIngest(source: ContentSource, niche: string): Promise<ScrapeResult> {
   const result: ScrapeResult = {
     source,
     collected: 0,
@@ -60,33 +62,28 @@ async function scrapeAndIngest(source: ContentSource): Promise<ScrapeResult> {
   };
 
   try {
+    const config = getNicheConfig(niche);
+    const apifyToken = getApifyToken(niche);
     let normalizedVideos: NormalizedContent[] = [];
 
     if (source === 'tiktok') {
-      // Quanto mais hashtags, mais variedade por run (ator ainda limita ~100 total mas é variado)
-      const scrapeResult = await scrapeTikTok([
-        'beachtennis',
-        'beachtennisbrasil',
-        'beachtennisplayer',
-        'beachtennislovers',
-        'beachtennislife',
-        'beachtennis2026',
-        'beachtennistorneio',
-        'beachtennisfeminino',
-        'beachtennismasculino',
-        'beachtennis_',
-      ]);
+      const scrapeResult = await scrapeTikTok(config.tiktokHashtags, { token: apifyToken });
       normalizedVideos = scrapeResult.videos.map(normalizeTikTokVideo);
       result.collected = normalizedVideos.length;
     } else if (source === 'youtube') {
-      const scrapeResult = await scrapeYouTubeShorts('beach tennis');
+      const scrapeResult = await scrapeYouTubeShorts(config.youtubeQuery, { token: apifyToken });
       normalizedVideos = scrapeResult.shorts.map(normalizeYouTubeShort);
       result.collected = normalizedVideos.length;
     }
 
+    const rejectKeywords = config.videoRejectKeywords.map((k) => k.toLowerCase());
+
     for (const video of normalizedVideos) {
       try {
-        if (isBlockedAuthor(video.authorUsername, source)) {
+        // Verifica blacklist de autores do nicho
+        const nicheBlockedAuthors = config.blockedAuthors[source] ?? [];
+        const authorNorm = video.authorUsername?.toLowerCase().replace('@', '').trim() ?? '';
+        if (nicheBlockedAuthors.includes(authorNorm) || isBlockedAuthor(video.authorUsername, source)) {
           result.blocked++;
           continue;
         }
@@ -94,6 +91,19 @@ async function scrapeAndIngest(source: ContentSource): Promise<ScrapeResult> {
         if (video.publishedAtSource) {
           const publishedYear = new Date(video.publishedAtSource).getFullYear();
           if (publishedYear !== 2026) {
+            result.filteredOut++;
+            continue;
+          }
+        }
+
+        // Filtro por palavras-chave de rejeição (ex: vo3, midjourney, etc.)
+        if (rejectKeywords.length > 0) {
+          const titleLower = (video.title ?? '').toLowerCase();
+          const descLower = (video.description ?? '').toLowerCase();
+          const isRejected = rejectKeywords.some(
+            (kw) => titleLower.includes(kw) || descLower.includes(kw)
+          );
+          if (isRejected) {
             result.filteredOut++;
             continue;
           }
@@ -119,6 +129,7 @@ async function scrapeAndIngest(source: ContentSource): Promise<ScrapeResult> {
           source: video.source,
           sourceVideoId: video.sourceVideoId,
           sourceUrl: video.sourceUrl,
+          niche,
           authorUsername: video.authorUsername,
           authorDisplayName: video.authorDisplayName,
           title: video.title,
@@ -131,7 +142,6 @@ async function scrapeAndIngest(source: ContentSource): Promise<ScrapeResult> {
           contentHash,
         });
 
-        // Salvo como 'discovered' - o ingest é acionado separadamente
         void contentItem;
         result.queued++;
       } catch (error) {

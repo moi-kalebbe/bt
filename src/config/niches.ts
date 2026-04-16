@@ -14,7 +14,13 @@ export const NICHES: Niche[] = [
     description: 'Conteúdo de beach tennis',
     color: 'text-orange-500',
   },
-  // v2: adicionar novos nichos aqui (futsal, surf, padel, etc.)
+  {
+    id: 'ai-tech',
+    label: 'IA & Tech',
+    icon: '🤖',
+    description: 'IA, automação, LLM e vibe coding',
+    color: 'text-blue-500',
+  },
 ];
 
 export const DEFAULT_NICHE = NICHES[0];

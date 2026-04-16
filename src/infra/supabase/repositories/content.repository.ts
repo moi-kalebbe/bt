@@ -9,6 +9,7 @@ export interface CreateContentParams {
   source: string;
   sourceVideoId: string;
   sourceUrl: string;
+  niche?: string;
   authorUsername?: string | null;
   authorDisplayName?: string | null;
   title?: string | null;
@@ -24,6 +25,7 @@ export interface CreateContentParams {
 export interface ContentFilters {
   source?: string;
   status?: ContentStatus;
+  niche?: string;
   authorUsername?: string;
   selectedForSlot?: Slot | null;
   limit?: number;
@@ -33,10 +35,11 @@ export interface ContentFilters {
 export async function createContent(
   params: CreateContentParams
 ): Promise<ContentItem> {
-  const insertData: ContentInsert = {
+  const insertData = {
     source: params.source,
     source_video_id: params.sourceVideoId,
     source_url: params.sourceUrl,
+    niche: params.niche ?? 'beach-tennis',
     author_username: params.authorUsername ?? null,
     author_display_name: params.authorDisplayName ?? null,
     title: params.title ?? null,
@@ -51,7 +54,8 @@ export async function createContent(
 
   const { data, error } = await supabase
     .from('content_items')
-    .insert(insertData)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .insert(insertData as any)
     .select()
     .single();
 
@@ -108,6 +112,9 @@ export async function findContents(
   }
   if (filters.status) {
     query = query.eq('status', filters.status);
+  }
+  if (filters.niche) {
+    query = query.eq('niche', filters.niche);
   }
   if (filters.authorUsername) {
     query = query.eq('author_username', filters.authorUsername);

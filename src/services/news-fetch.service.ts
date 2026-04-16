@@ -9,6 +9,7 @@ import {
 } from '@/infra/supabase/repositories/news.repository';
 import { uploadToR2 } from '@/infra/r2/client';
 import { buildNewsImagePath } from '@/infra/r2/paths';
+import { getNicheConfig } from '@/config/niche-configs';
 
 export interface FetchNewsResult {
   discovered: number;
@@ -17,74 +18,6 @@ export interface FetchNewsResult {
   failed: number;
   errors: string[];
 }
-
-interface RssSource {
-  name: string;
-  url: string;
-  /** Se true, o link do item é um redirect do Google News e precisa ser resolvido */
-  needsResolution?: boolean;
-  /** Filtro opcional: só processa itens cujo título contenha esse termo (case-insensitive) */
-  filterKeyword?: string;
-}
-
-/**
- * Fontes RSS em ordem de prioridade.
- *
- * Fontes DIRETAS (needsResolution = false): o item.link já é a URL real do artigo.
- * Fontes GOOGLE NEWS (needsResolution = true): o item.link é um redirect do Google
- *   que tentamos resolver via RSS do domínio fonte.
- */
-const RSS_SOURCES: RssSource[] = [
-  // ── Fontes diretas de beach tennis ─────────────────────────────────────────
-  {
-    name: 'Tênis Brasil',
-    url: 'https://tenisbrasil.com.br/feed/',
-  },
-  {
-    name: 'CBT',
-    url: 'https://cbt.org.br/feed/',
-  },
-  {
-    name: 'BT Brasil',
-    url: 'https://btbrasil.com.br/feed/',
-  },
-  {
-    name: 'Beach Tennis News',
-    url: 'https://beachtennis.news/feed/',
-  },
-  // ── Portais esportivos gerais (filtra por keyword) ─────────────────────────
-  {
-    name: 'Lance!',
-    url: 'https://www.lance.com.br/feed/',
-    filterKeyword: 'beach tennis',
-  },
-  {
-    name: 'ESPN BR',
-    url: 'https://www.espn.com.br/rss/espn.xml',
-    filterKeyword: 'beach tennis',
-  },
-  {
-    name: 'G1 Esportes',
-    url: 'https://g1.globo.com/rss/g1/esportes/',
-    filterKeyword: 'beach tennis',
-  },
-  {
-    name: 'Terra Esportes',
-    url: 'https://www.terra.com.br/esportes/rss/',
-    filterKeyword: 'beach tennis',
-  },
-  // ── Google News (URL real resolvida via RSS do site fonte) ─────────────────
-  {
-    name: 'Google News PT',
-    url: 'https://news.google.com/rss/search?q=beach+tennis&hl=pt-BR&gl=BR&ceid=BR:pt-419',
-    needsResolution: true,
-  },
-  {
-    name: 'Google News EN',
-    url: 'https://news.google.com/rss/search?q=%22beach+tennis%22&hl=en-US&gl=US&ceid=US:en',
-    needsResolution: true,
-  },
-];
 
 // Caminhos de RSS comuns para tentar nos domínios fonte
 const RSS_PATHS = [
@@ -100,7 +33,7 @@ const RSS_PATHS = [
 
 const parser = new Parser({
   timeout: 10_000,
-  headers: { 'User-Agent': 'Mozilla/5.0 (compatible; BeachTennisBot/1.0)' },
+  headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ContentBot/1.0)' },
   customFields: {
     item: [['source', 'sourceTag']],
   },
@@ -111,25 +44,37 @@ const sourceFeedCache = new Map<string, { link: string; title: string }[]>();
 
 // Mapeamento de nomes de fonte (do Google News) para domínios reais
 const SOURCE_DOMAIN_MAP: Record<string, string> = {
-  'g1':               'g1.globo.com',
-  'globo':            'g1.globo.com',
-  'terra':            'terra.com.br',
-  'uol':              'esporte.uol.com.br',
-  'lance':            'lance.com.br',
-  'espn':             'espn.com.br',
-  'tenisbrasil':      'tenisbrasil.com.br',
-  'cbt':              'cbt.org.br',
-  'btbrasil':         'btbrasil.com.br',
-  'correio braziliense': 'correiobraziliense.com.br',
-  'r7':               'r7.com',
-  'estadao':          'estadao.com.br',
-  'folha de s.paulo': 'folha.uol.com.br',
-  'metropolitan':     'metropolitan.com.br',
-  'dn':               'dn.pt',
-  'beach tennis news': 'beachtennis.news',
+  'g1':                    'g1.globo.com',
+  'globo':                 'g1.globo.com',
+  'terra':                 'terra.com.br',
+  'uol':                   'esporte.uol.com.br',
+  'lance':                 'lance.com.br',
+  'espn':                  'espn.com.br',
+  'tenisbrasil':           'tenisbrasil.com.br',
+  'cbt':                   'cbt.org.br',
+  'btbrasil':              'btbrasil.com.br',
+  'correio braziliense':   'correiobraziliense.com.br',
+  'r7':                    'r7.com',
+  'estadao':               'estadao.com.br',
+  'folha de s.paulo':      'folha.uol.com.br',
+  'metropolitan':          'metropolitan.com.br',
+  'dn':                    'dn.pt',
+  'beach tennis news':     'beachtennis.news',
+  // AI/Tech
+  'the verge':             'theverge.com',
+  'techcrunch':            'techcrunch.com',
+  'venturebeat':           'venturebeat.com',
+  'mit technology review': 'technologyreview.com',
+  'ars technica':          'arstechnica.com',
+  'olhar digital':         'olhardigital.com.br',
+  'canaltech':             'canaltech.com.br',
+  'wired':                 'wired.com',
 };
 
-export async function fetchBeachTennisNews(): Promise<FetchNewsResult> {
+export async function fetchNicheNews(niche = 'beach-tennis'): Promise<FetchNewsResult> {
+  const config = getNicheConfig(niche);
+  sourceFeedCache.clear(); // limpa cache a cada run
+
   const result: FetchNewsResult = {
     discovered: 0,
     duplicates: 0,
@@ -138,7 +83,7 @@ export async function fetchBeachTennisNews(): Promise<FetchNewsResult> {
     errors: [],
   };
 
-  for (const source of RSS_SOURCES) {
+  for (const source of config.newsSources) {
     let feed;
     try {
       feed = await parser.parseURL(source.url);
@@ -167,7 +112,6 @@ export async function fetchBeachTennisNews(): Promise<FetchNewsResult> {
         let resolvedUrl: string | null = null;
 
         if (source.needsResolution) {
-          // Fonte Google News: tentar resolver a URL real via RSS do site fonte
           const googleNewsLink = item.link ?? '';
           if (!googleNewsLink) {
             result.failed++;
@@ -189,7 +133,6 @@ export async function fetchBeachTennisNews(): Promise<FetchNewsResult> {
             continue;
           }
         } else {
-          // Fonte direta: usar o link do item diretamente
           resolvedUrl = item.link ?? item.guid ?? null;
           if (!resolvedUrl || isGoogleOrigin(resolvedUrl)) {
             result.failed++;
@@ -197,7 +140,6 @@ export async function fetchBeachTennisNews(): Promise<FetchNewsResult> {
           }
         }
 
-        // Deduplicação
         const existing = await findNewsItemByUrl(resolvedUrl);
         if (existing) {
           result.duplicates++;
@@ -210,6 +152,7 @@ export async function fetchBeachTennisNews(): Promise<FetchNewsResult> {
           title: cleanTitle || rawTitle,
           sourceUrl: resolvedUrl,
           sourceName: source.name,
+          niche,
           summary: null,
           author,
           publishedAt: item.pubDate ? new Date(item.pubDate).toISOString() : null,
@@ -235,6 +178,11 @@ export async function fetchBeachTennisNews(): Promise<FetchNewsResult> {
   return result;
 }
 
+/** @deprecated Use fetchNicheNews('beach-tennis') */
+export async function fetchBeachTennisNews(): Promise<FetchNewsResult> {
+  return fetchNicheNews('beach-tennis');
+}
+
 function isGoogleOrigin(url: string): boolean {
   try {
     const { hostname } = new URL(url);
@@ -249,7 +197,6 @@ function isGoogleOrigin(url: string): boolean {
   }
 }
 
-/** Extrai o domínio a partir da tag <source> do Google News ou do sufixo do título */
 function extractSourceDomain(
   sourceTag: { $?: { url?: string } } | string | undefined,
   itemTitle?: string
@@ -289,10 +236,6 @@ function extractSourceDomain(
   return null;
 }
 
-/**
- * Encontra a URL real do artigo buscando no RSS do domínio fonte.
- * Compara palavras-chave do título para fazer o match.
- */
 async function resolveViaSourceRss(domain: string, title: string): Promise<string | null> {
   if (!sourceFeedCache.has(domain)) {
     const items = await fetchSourceFeedItems(domain);
@@ -326,7 +269,6 @@ async function resolveViaSourceRss(domain: string, title: string): Promise<strin
   return null;
 }
 
-/** Tenta caminhos comuns de RSS no domínio e retorna os itens do feed */
 async function fetchSourceFeedItems(domain: string): Promise<{ link: string; title: string }[]> {
   for (const path of RSS_PATHS) {
     const url = `https://${domain}${path}`;
@@ -381,7 +323,6 @@ async function scrapeArticle(newsItemId: string, url: string): Promise<boolean> 
         .querySelector('meta[property="og:image"]')
         ?.getAttribute('content') ?? null;
 
-    // Filtra qualquer imagem hospedada no Google
     const isGoogleImage =
       Boolean(ogImage) &&
       (ogImage!.includes('google.com') ||
@@ -396,7 +337,6 @@ async function scrapeArticle(newsItemId: string, url: string): Promise<boolean> 
 
     const title = article?.title || ogTitle || null;
 
-    // Rejeita se acabamos em uma página genérica do Google
     const genericTitles = ['google news', 'google'];
     if (title && genericTitles.includes(title.trim().toLowerCase())) {
       await setNewsStatus(newsItemId, 'failed', 'Página genérica do Google — URL inválida');
