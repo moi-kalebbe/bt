@@ -152,11 +152,14 @@ function buildTextSvg(
   const TITLE_LINE_H = 72;
   const SUMMARY_LINE_H = 46;
 
-  const titleLines = wrapText(title, 52, canvasW - MARGIN * 2).slice(0, 4);
+  // Remove prefixo redundante "Beach Tennis:" do título (o chip já informa)
+  const cleanTitle = title.replace(/^beach\s+tennis\s*[:\-–]\s*/i, '').trim();
+
+  const titleLines = wrapText(cleanTitle, 52, canvasW - MARGIN * 2).slice(0, 4);
   const summaryLines = wrapText(summary, 28, canvasW - MARGIN * 2).slice(0, 3);
 
-  // Build content from bottom up
-  const SOURCE_Y = canvasH - 32;         // source attribution near bottom
+  // Build content from bottom up — SOURCE_Y mais alto para preencher o espaço escuro
+  const SOURCE_Y = canvasH - 250;        // sobe o bloco de texto
   const summaryEndY = SOURCE_Y - 56;     // last summary line baseline
   const summaryStartY = summaryEndY - (summaryLines.length - 1) * SUMMARY_LINE_H;
   const RULE_Y = summaryStartY - 28;     // accent divider line
@@ -201,19 +204,7 @@ function buildTextSvg(
         <feDropShadow dx="0" dy="1" stdDeviation="3"
           flood-color="#000000" flood-opacity="0.7"/>
       </filter>
-      <linearGradient id="topBar" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%"   stop-color="#000000" stop-opacity="0.78"/>
-        <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
-      </linearGradient>
     </defs>
-
-    <!-- Top branding bar -->
-    <rect width="${canvasW}" height="140" fill="url(#topBar)"/>
-    <text x="${canvasW / 2}" y="82"
-      font-size="28" fill="#FFFFFF" font-weight="bold" font-style="italic"
-      font-family="Arial, Helvetica, sans-serif"
-      text-anchor="middle" filter="url(#shadowLight)"
-      opacity="0.92">@dicas.beachtennis</text>
 
     <!-- Category chip -->
     <rect x="${MARGIN}" y="${CHIP_Y - CHIP_H + 6}"
