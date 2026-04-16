@@ -1,4 +1,7 @@
 import sharp from 'sharp';
+import satori, { type SatoriOptions } from 'satori';
+import fs from 'node:fs';
+import path from 'node:path';
 import { uploadToR2, getPublicUrl } from '@/infra/r2/client';
 import { buildNewsStoryPath } from '@/infra/r2/paths';
 import {
@@ -20,6 +23,21 @@ const CANVAS_W = 1080;
 const CANVAS_H = 1920; // 9:16 — formato Story do Instagram
 const COVER_H = 1150;  // hero image height (~60% of canvas)
 const ACCENT = '#FF6B00'; // sports orange accent
+
+// Lazy-loaded font cache — lido do disco uma vez por processo
+type FontOptions = NonNullable<SatoriOptions['fonts']>[number];
+
+let _fonts: FontOptions[] | null = null;
+function getFonts(): FontOptions[] {
+  if (!_fonts) {
+    const base = path.join(process.cwd(), 'src/assets/fonts');
+    _fonts = [
+      { name: 'Inter', data: fs.readFileSync(path.join(base, 'Inter-Bold.woff2')), weight: 700, style: 'normal' },
+      { name: 'Inter', data: fs.readFileSync(path.join(base, 'Inter-Regular.woff2')), weight: 400, style: 'normal' },
+    ];
+  }
+  return _fonts;
+}
 
 export async function composeStoryArt(newsItemId: string): Promise<ComposeResult> {
   try {
@@ -47,8 +65,6 @@ export async function composeStoryArt(newsItemId: string): Promise<ComposeResult
       .jpeg({ quality: 95 })
       .toBuffer();
 
-    const coverLeft = 0;
-
     // Layer 3 — gradient overlay (starts high, strong fade to black)
     const gradientTop = 550;
     const gradientHeight = CANVAS_H - gradientTop;
@@ -58,24 +74,23 @@ export async function composeStoryArt(newsItemId: string): Promise<ComposeResult
       .png()
       .toBuffer();
 
-    // Layer 4 — text SVG (branding, category chip, title, summary, source)
+    // Layer 4 — text (Satori: fonte real, wrapping correto, sem dependência do sistema)
     const niche = item.niche ?? 'beach-tennis';
     const nicheConfig = getNicheConfig(niche);
-    const textBuffer = await sharp(
-      Buffer.from(buildTextSvg(
-        item.title, item.summary ?? '', item.source_name,
-        CANVAS_W, CANVAS_H,
-        nicheConfig.newsChipLabel,
-        nicheConfig.newsTitlePrefixPattern,
-      ))
-    )
-      .png()
-      .toBuffer();
+    const textBuffer = await buildTextLayer(
+      item.title,
+      item.summary ?? '',
+      item.source_name,
+      nicheConfig.newsChipLabel,
+      nicheConfig.newsTitlePrefixPattern,
+      CANVAS_W,
+      CANVAS_H,
+    );
 
     // Composite all layers
     const result = await sharp(bgBuffer)
       .composite([
-        { input: coverLayer, top: 0, left: coverLeft },
+        { input: coverLayer, top: 0, left: 0 },
         { input: gradientBuffer, top: gradientTop, left: 0 },
         { input: textBuffer, top: 0, left: 0 },
       ])
@@ -149,150 +164,153 @@ function buildGradientSvg(width: number, height: number): string {
   </svg>`;
 }
 
-function buildTextSvg(
+/**
+ * Gera a camada de texto via Satori — fonte Inter embarcada, wrapping real,
+ * sem dependência de fontes do sistema (problema do librsvg).
+ */
+async function buildTextLayer(
   title: string,
   summary: string,
   sourceName: string,
-  canvasW: number,
-  canvasH: number,
   chipLabel: string,
   titlePrefixPattern: RegExp,
-): string {
-  const MARGIN = 72;
-  const TITLE_LINE_H = 72;
-  const SUMMARY_LINE_H = 46;
+  canvasW: number,
+  canvasH: number,
+): Promise<Buffer> {
+  const cleanTitle = truncateAtWord(title.replace(titlePrefixPattern, '').trim(), 80);
+  const cleanSummary = truncateAtWord(summary, 160);
 
-  // Remove prefixo redundante do título (o chip já informa o nicho)
-  const rawTitle = title.replace(titlePrefixPattern, '').trim();
+  // Satori aceita objetos VDOM plain em runtime; cast necessário pois os tipos pedem ReactNode
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const element: any = {
+    type: 'div',
+      props: {
+        style: {
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'flex-end',
+          width: canvasW,
+          height: canvasH,
+          paddingLeft: 72,
+          paddingRight: 72,
+          paddingBottom: 260,
+          fontFamily: 'Inter',
+          color: '#FFFFFF',
+          position: 'relative',
+        },
+        children: [
+          // Chip de categoria
+          {
+            type: 'div',
+            props: {
+              style: {
+                display: 'flex',
+                alignItems: 'center',
+                backgroundColor: ACCENT,
+                borderRadius: 4,
+                paddingTop: 6,
+                paddingBottom: 6,
+                paddingLeft: 16,
+                paddingRight: 16,
+                marginBottom: 20,
+                alignSelf: 'flex-start',
+                fontSize: 20,
+                fontWeight: 700,
+                letterSpacing: 2,
+                color: '#FFFFFF',
+              },
+              children: chipLabel,
+            },
+          },
+          // Título principal
+          {
+            type: 'div',
+            props: {
+              style: {
+                display: 'flex',
+                fontSize: 56,
+                fontWeight: 700,
+                lineHeight: 1.25,
+                marginBottom: 20,
+                color: '#FFFFFF',
+              },
+              children: cleanTitle,
+            },
+          },
+          // Linha divisora
+          {
+            type: 'div',
+            props: {
+              style: {
+                display: 'flex',
+                width: 80,
+                height: 3,
+                backgroundColor: ACCENT,
+                borderRadius: 2,
+                marginBottom: 20,
+              },
+              children: '',
+            },
+          },
+          // Resumo
+          {
+            type: 'div',
+            props: {
+              style: {
+                display: 'flex',
+                fontSize: 30,
+                fontWeight: 400,
+                color: '#D0D0D0',
+                lineHeight: 1.55,
+                marginBottom: 32,
+              },
+              children: cleanSummary,
+            },
+          },
+          // Fonte/atribuição
+          {
+            type: 'div',
+            props: {
+              style: {
+                display: 'flex',
+                fontSize: 22,
+                fontWeight: 400,
+                color: 'rgba(255,255,255,0.55)',
+              },
+              children: sourceName,
+            },
+          },
+          // Barra de acento inferior
+          {
+            type: 'div',
+            props: {
+              style: {
+                display: 'flex',
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                width: canvasW,
+                height: 8,
+                backgroundColor: ACCENT,
+              },
+              children: '',
+            },
+          },
+        ],
+      },
+  };
 
-  // Limites de caracteres — garante preenchimento visual consistente
-  const MAX_TITLE_CHARS = 80;
-  const MAX_SUMMARY_CHARS = 160;
-  const cleanTitle = truncateAtWord(rawTitle, MAX_TITLE_CHARS);
-  const cleanSummary = truncateAtWord(summary ?? '', MAX_SUMMARY_CHARS);
+  const svgString = await satori(element, {
+    width: canvasW,
+    height: canvasH,
+    fonts: getFonts(),
+  });
 
-  const titleLines = wrapText(cleanTitle, 52, canvasW - MARGIN * 2).slice(0, 3);
-  const summaryLines = wrapText(cleanSummary, 28, canvasW - MARGIN * 2).slice(0, 3);
-
-  // Build content from bottom up
-  const SOURCE_Y   = canvasH - 250;                                          // fonte
-  const summaryEndY   = SOURCE_Y - 80;                                       // ↑ mais espaço
-  const summaryStartY = summaryEndY - (summaryLines.length - 1) * SUMMARY_LINE_H;
-  const RULE_Y        = summaryStartY - 44;                                  // ↑ mais espaço
-  const titleEndY     = RULE_Y - 52;                                         // ↑ mais espaço
-  const titleStartY   = titleEndY - (titleLines.length - 1) * TITLE_LINE_H;
-  const CHIP_Y        = titleStartY - 72;                                    // ↑ mais espaço
-
-  // Chip dimensions: ~14px per char at font-size 20 + 32px padding
-  const CHIP_W = chipLabel.length * 14 + 32;
-  const CHIP_H = 38;
-
-  const titleSvg = titleLines
-    .map(
-      (line, i) => `
-    <text x="${MARGIN}" y="${titleStartY + i * TITLE_LINE_H}"
-      font-size="56" font-weight="bold" fill="#FFFFFF"
-      font-family="Arial, Helvetica, sans-serif"
-      filter="url(#shadow)">${escapeXml(line)}</text>`
-    )
-    .join('');
-
-  const summarySvg = summaryLines.length
-    ? summaryLines
-        .map(
-          (line, i) => `
-    <text x="${MARGIN}" y="${summaryStartY + i * SUMMARY_LINE_H}"
-      font-size="30" fill="#D0D0D0"
-      font-family="Arial, Helvetica, sans-serif"
-      filter="url(#shadowLight)">${escapeXml(line)}</text>`
-        )
-        .join('')
-    : '';
-
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${canvasW}" height="${canvasH}">
-    <defs>
-      <filter id="shadow" x="-5%" y="-10%" width="115%" height="130%">
-        <feDropShadow dx="0" dy="2" stdDeviation="6"
-          flood-color="#000000" flood-opacity="0.9"/>
-      </filter>
-      <filter id="shadowLight" x="-5%" y="-10%" width="115%" height="130%">
-        <feDropShadow dx="0" dy="1" stdDeviation="3"
-          flood-color="#000000" flood-opacity="0.7"/>
-      </filter>
-    </defs>
-
-    <!-- Category chip -->
-    <rect x="${MARGIN}" y="${CHIP_Y - CHIP_H + 6}"
-      width="${CHIP_W}" height="${CHIP_H}"
-      rx="4" fill="${ACCENT}"/>
-    <text x="${MARGIN + 16}" y="${CHIP_Y - 4}"
-      font-size="20" fill="#FFFFFF" font-weight="bold"
-      font-family="Arial, Helvetica, sans-serif"
-      letter-spacing="2">${escapeXml(chipLabel)}</text>
-
-    <!-- Title -->
-    ${titleSvg}
-
-    <!-- Accent divider line -->
-    <rect x="${MARGIN}" y="${RULE_Y}" width="80" height="3" rx="2" fill="${ACCENT}"/>
-
-    <!-- Summary -->
-    ${summarySvg}
-
-    <!-- Source attribution -->
-    <text x="${MARGIN}" y="${SOURCE_Y}"
-      font-size="22" fill="#FFFFFF" opacity="0.55"
-      font-family="Arial, Helvetica, sans-serif"
-      filter="url(#shadowLight)">${escapeXml(sourceName)}</text>
-
-    <!-- Bottom accent bar -->
-    <rect x="0" y="${canvasH - 8}" width="${canvasW}" height="8" fill="${ACCENT}"/>
-  </svg>`;
+  return sharp(Buffer.from(svgString)).png().toBuffer();
 }
 
-/** Trunca no limite de caracteres respeitando a última palavra completa. */
 function truncateAtWord(text: string, max: number): string {
   if (!text || text.length <= max) return text;
   const cut = text.slice(0, max).replace(/\s+\S*$/, '');
   return cut + '…';
-}
-
-/**
- * Approximate word-wrap using character count as proxy for pixel width.
- * librsvg doesn't support glyph measurement at compose time, so we use
- * conservative char limits. For 44px bold: ~22 chars/line at 952px usable width.
- * For 28px regular: ~38 chars/line.
- */
-function wrapText(text: string, fontSize: number, usableWidth: number): string[] {
-  if (!text) return [];
-
-  // Empirical: ~0.55 × fontSize gives average char width for Arial
-  const avgCharW = fontSize * 0.55;
-  const maxChars = Math.floor(usableWidth / avgCharW);
-
-  const words = text.split(' ');
-  const lines: string[] = [];
-  let current = '';
-
-  for (const word of words) {
-    const candidate = current ? `${current} ${word}` : word;
-    if (candidate.length > maxChars && current) {
-      lines.push(current);
-      current = word;
-    } else {
-      current = candidate;
-    }
-  }
-  if (current) lines.push(current);
-
-  return lines;
-}
-
-function escapeXml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
 }
