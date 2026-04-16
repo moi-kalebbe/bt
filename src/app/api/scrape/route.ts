@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await runScrape(source, niche);
+    const result = await runScrape(source as 'tiktok' | 'youtube' | 'both', niche);
 
     startIngestBackground();
 
