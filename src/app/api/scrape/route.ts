@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
 
     const result = await runScrape(source as 'tiktok' | 'youtube' | 'both', niche);
 
-    startIngestBackground();
+    startIngestBackground(niche);
 
     return NextResponse.json({
       ...result,
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
 
     const result = await runScrape('both', niche);
 
-    startIngestBackground();
+    startIngestBackground(niche);
 
     return NextResponse.json({
       ...result,

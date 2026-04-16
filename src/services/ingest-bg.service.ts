@@ -1,43 +1,41 @@
 import { findContents } from '@/infra/supabase/repositories/content.repository';
 import { ingestContent } from '@/services/ingest.service';
 
-let isRunning = false;
+let runningNiches = new Set<string>();
 
 /**
- * Roda em segundo plano sem bloquear. Processa todos os 'discovered' em fila.
- * Seguro chamar múltiplas vezes — ignora novas chamadas se já estiver ativo.
+ * Roda em segundo plano sem bloquear. Processa itens 'discovered' do nicho informado.
+ * Seguro chamar múltiplas vezes — ignora se o nicho já estiver em processamento.
  */
-export function startIngestBackground() {
-  if (isRunning) {
-    console.log('[ingest-bg] Já está rodando, ignorando chamada duplicada.');
+export function startIngestBackground(niche: string = 'beach-tennis') {
+  if (runningNiches.has(niche)) {
+    console.log(`[ingest-bg] Nicho "${niche}" já está rodando, ignorando chamada duplicada.`);
     return;
   }
 
-  isRunning = true;
-  console.log('[ingest-bg] Iniciando processamento em segundo plano...');
+  runningNiches.add(niche);
+  console.log(`[ingest-bg] Iniciando processamento em segundo plano para nicho: ${niche}`);
 
-  // Fire-and-forget: não fazemos await aqui
-  runLoop()
-    .catch((err) => console.error('[ingest-bg] Erro fatal:', err))
+  runLoop(niche)
+    .catch((err) => console.error(`[ingest-bg] Erro fatal (${niche}):`, err))
     .finally(() => {
-      isRunning = false;
-      console.log('[ingest-bg] Finalizado.');
+      runningNiches.delete(niche);
+      console.log(`[ingest-bg] Finalizado (${niche}).`);
     });
 }
 
-async function runLoop() {
+async function runLoop(niche: string) {
   let totalProcessed = 0;
 
   while (true) {
-    // Pega um lote pequeno para não sobrecarregar memória
-    const { items } = await findContents({ status: 'discovered', limit: 10 });
+    const { items } = await findContents({ status: 'discovered', niche, limit: 10 });
 
     if (items.length === 0) {
-      console.log(`[ingest-bg] Sem mais itens para ingerir. Total processado: ${totalProcessed}`);
+      console.log(`[ingest-bg] Sem mais itens para ingerir (${niche}). Total processado: ${totalProcessed}`);
       break;
     }
 
-    console.log(`[ingest-bg] Processando lote de ${items.length} itens...`);
+    console.log(`[ingest-bg] Processando lote de ${items.length} itens (${niche})...`);
 
     for (const item of items) {
       try {
