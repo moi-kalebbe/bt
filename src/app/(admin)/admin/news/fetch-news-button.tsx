@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, X, CheckCircle2, AlertCircle } from 'lucide-react';
 
@@ -15,6 +16,7 @@ interface JobState {
 }
 
 export function FetchNewsButton({ niche }: { niche: string }) {
+  const router = useRouter();
   const [job, setJob] = useState<JobState>({ status: 'idle' });
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -51,12 +53,11 @@ export function FetchNewsButton({ niche }: { niche: string }) {
           errors: data.errors,
         });
 
+        // Atualiza a lista de notícias enquanto o job roda
+        router.refresh();
+
         if (data.status !== 'running') {
           stopPolling();
-          if (data.status === 'completed') {
-            // Recarrega a lista após 1s
-            setTimeout(() => window.location.reload(), 1000);
-          }
         }
       } catch { /* ignora erro de rede */ }
     }, 3_000);
