@@ -62,9 +62,32 @@ export async function fetchNicheNews(niche = 'beach-tennis'): Promise<FetchNewsR
           const googleNewsLink = item.link ?? '';
           if (!googleNewsLink) { result.failed++; continue; }
 
-          resolvedUrl = await resolveGoogleNewsUrl(googleNewsLink);
+          // Usa Jina Reader: segue redirect do Google News E extrai conteúdo em uma chamada
+          const jinaData = await scrapeViaJina(googleNewsLink);
+          if (!jinaData) { result.failed++; continue; }
 
-          if (!resolvedUrl) { result.failed++; continue; }
+          const existingJina = await findNewsItemByUrl(jinaData.url);
+          if (existingJina) { result.duplicates++; continue; }
+
+          const newsItem = await createNewsItem({
+            title: jinaData.title || cleanTitle || rawTitle,
+            sourceUrl: jinaData.url,
+            sourceName: source.name,
+            niche,
+            summary: buildSummary(jinaData.content),
+            author: item.creator ?? null,
+            publishedAt: item.pubDate ? new Date(item.pubDate).toISOString() : null,
+          });
+          result.discovered++;
+
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await updateNewsItem(newsItem.id, {
+            status: 'scraped',
+            full_content: jinaData.content?.slice(0, 20_000) ?? null,
+            scraped_at: new Date().toISOString(),
+          } as any);
+          result.scraped++;
+          continue;
         } else {
           resolvedUrl = item.link ?? item.guid ?? null;
           if (!resolvedUrl || isGoogleOrigin(resolvedUrl)) {
@@ -126,22 +149,40 @@ export async function fetchBeachTennisNews(): Promise<FetchNewsResult> {
   return fetchNicheNews('beach-tennis');
 }
 
-async function resolveGoogleNewsUrl(googleUrl: string): Promise<string | null> {
-  // Tenta HEAD primeiro (mais rápido, sem baixar body)
-  for (const method of ['HEAD', 'GET'] as const) {
-    try {
-      const res = await fetch(googleUrl, {
-        method,
-        redirect: 'follow',
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ContentBot/1.0)' },
-        signal: AbortSignal.timeout(10_000),
-      });
-      if (!isGoogleOrigin(res.url)) return res.url;
-    } catch {
-      // tenta próximo método
-    }
+interface JinaResult {
+  url: string;
+  title: string;
+  content: string | null;
+}
+
+async function scrapeViaJina(url: string): Promise<JinaResult | null> {
+  try {
+    const res = await fetch(`https://r.jina.ai/${url}`, {
+      headers: {
+        Accept: 'application/json',
+        'X-Return-Format': 'markdown',
+        'User-Agent': 'Mozilla/5.0',
+      },
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (!res.ok) return null;
+
+    const json = await res.json() as {
+      code?: number;
+      data?: { url?: string; title?: string; content?: string; description?: string };
+    };
+
+    const data = json.data;
+    if (!data?.url || isGoogleOrigin(data.url)) return null;
+
+    return {
+      url: data.url,
+      title: data.title ?? '',
+      content: data.content ?? data.description ?? null,
+    };
+  } catch {
+    return null;
   }
-  return null;
 }
 
 function isGoogleOrigin(url: string): boolean {
