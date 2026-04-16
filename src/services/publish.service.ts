@@ -3,6 +3,7 @@ import { updatePublishJobStatus } from '@/infra/supabase/repositories/publish-jo
 import { getNicheSettings } from '@/infra/supabase/repositories/niche-settings.repository';
 import { supabase } from '@/infra/supabase/client';
 import { zernioPost, type ZernioPlatform, type ZernioResult } from '@/infra/zernio/client';
+import { metaInstagramPost } from '@/infra/meta/instagram.client';
 import { generateCaption } from '@/services/caption.service';
 import { getNicheConfig } from '@/config/niche-configs';
 import type { PublishTarget } from '@/types/domain';
@@ -56,17 +57,42 @@ export async function publishVideo(
     const caption = await generateCaption(content);
 
     const niche = content.niche ?? 'beach-tennis';
-    // DB tem prioridade sobre niche-configs.ts (editável via UI de settings)
     const [dbSettings, staticConfig] = await Promise.all([
       getNicheSettings(niche).catch(() => null),
       Promise.resolve(getNicheConfig(niche)),
     ]);
-    const zernioIdKey = `zernio_${platform}_id` as keyof typeof dbSettings;
-    const accountId =
-      (dbSettings?.[zernioIdKey] as string | null | undefined) ||
-      staticConfig.zernioAccountIds[platform] ||
-      undefined;
-    const apiResult = await zernioPost(platform, videoUrl, caption, accountId);
+
+    // Instagram: tenta Meta Graph API primeiro, cai no Zernio se falhar
+    let apiResult: ZernioResult;
+    if (platform === 'instagram' && dbSettings?.meta_access_token && dbSettings?.meta_instagram_account_id) {
+      const metaResult = await metaInstagramPost(
+        dbSettings.meta_access_token,
+        dbSettings.meta_instagram_account_id,
+        videoUrl,
+        caption
+      );
+
+      if (metaResult.success) {
+        apiResult = { success: true, postId: metaResult.postId };
+      } else {
+        console.warn(`[publish] Meta falhou (${metaResult.error}), tentando Zernio...`);
+        const zernioIdKey = `zernio_${platform}_id` as keyof typeof dbSettings;
+        const accountId =
+          (dbSettings?.[zernioIdKey] as string | null | undefined) ||
+          staticConfig.zernioAccountIds[platform] || undefined;
+        apiResult = await zernioPost(platform, videoUrl, caption, accountId);
+        if (!apiResult.success) {
+          apiResult.error = `Meta: ${metaResult.error} | Zernio: ${apiResult.error}`;
+          apiResult.dailyLimitReached = metaResult.dailyLimitReached && apiResult.dailyLimitReached;
+        }
+      }
+    } else {
+      const zernioIdKey = `zernio_${platform}_id` as keyof typeof dbSettings;
+      const accountId =
+        (dbSettings?.[zernioIdKey] as string | null | undefined) ||
+        staticConfig.zernioAccountIds[platform] || undefined;
+      apiResult = await zernioPost(platform, videoUrl, caption, accountId);
+    }
 
     if (apiResult.success) {
       await setContentPublished(contentId, platform);

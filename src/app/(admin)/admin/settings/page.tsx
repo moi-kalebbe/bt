@@ -54,7 +54,7 @@ export default async function SettingsPage({
                     <span>{niche.icon}</span>
                     {niche.label}
                   </CardTitle>
-                  <CardDescription>IDs Zernio e handles de legenda</CardDescription>
+                  <CardDescription>Meta, Zernio e handles de legenda</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <form
@@ -62,6 +62,8 @@ export default async function SettingsPage({
                       'use server';
                       const nicheId = formData.get('niche_id') as string;
                       const apifyTokenRaw = (formData.get('apify_token') as string).trim();
+                      const metaToken = (formData.get('meta_access_token') as string).trim();
+                      const metaAccountId = (formData.get('meta_instagram_account_id') as string).trim();
                       await upsertNicheSettings(nicheId, {
                         zernio_instagram_id: (formData.get('zernio_instagram_id') as string) || null,
                         zernio_tiktok_id:    (formData.get('zernio_tiktok_id')    as string) || null,
@@ -70,6 +72,8 @@ export default async function SettingsPage({
                         caption_account_handle: (formData.get('caption_account_handle') as string) || null,
                         caption_account_tag:    (formData.get('caption_account_tag')    as string) || null,
                         apify_token: apifyTokenRaw || null,
+                        meta_access_token: metaToken || null,
+                        meta_instagram_account_id: metaAccountId || null,
                       });
                       revalidatePath('/admin/settings');
                     }}
@@ -90,6 +94,35 @@ export default async function SettingsPage({
                           autoComplete="new-password"
                         />
                       </div>
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Meta (Instagram oficial)</p>
+                      <div className="grid grid-cols-[80px_1fr] items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Account ID</span>
+                        <Input
+                          name="meta_instagram_account_id"
+                          defaultValue={s?.meta_instagram_account_id ?? ''}
+                          placeholder="17841400000000000"
+                          className="h-8 text-xs font-mono"
+                        />
+                      </div>
+                      <div className="grid grid-cols-[80px_1fr] items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Token</span>
+                        <Input
+                          name="meta_access_token"
+                          type="password"
+                          defaultValue={s?.meta_access_token ?? ''}
+                          placeholder={s?.meta_access_token ? '••••••••' : 'EAABwzLixnjYB...'}
+                          className="h-8 text-xs font-mono"
+                          autoComplete="new-password"
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Prioridade sobre Zernio para Instagram (50 posts/dia). Token expira em 60 dias.
+                      </p>
                     </div>
 
                     <Separator />

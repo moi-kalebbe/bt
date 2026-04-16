@@ -312,6 +312,8 @@ export type Database = {
           caption_account_handle: string | null;
           caption_account_tag: string | null;
           apify_token: string | null;
+          meta_access_token: string | null;
+          meta_instagram_account_id: string | null;
           updated_at: string;
         };
         Insert: {
@@ -323,6 +325,8 @@ export type Database = {
           caption_account_handle?: string | null;
           caption_account_tag?: string | null;
           apify_token?: string | null;
+          meta_access_token?: string | null;
+          meta_instagram_account_id?: string | null;
           updated_at?: string;
         };
         Update: {
@@ -334,6 +338,8 @@ export type Database = {
           caption_account_handle?: string | null;
           caption_account_tag?: string | null;
           apify_token?: string | null;
+          meta_access_token?: string | null;
+          meta_instagram_account_id?: string | null;
           updated_at?: string;
         };
       };
