@@ -5,8 +5,14 @@ export const maxDuration = 120;
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json().catch(() => ({}));
-    const niche = body.niche ?? 'beach-tennis';
+    let niche = 'beach-tennis';
+    try {
+      const body = await request.json();
+      if (body?.niche) niche = body.niche;
+    } catch {
+      const text = await request.text().catch(() => '');
+      niche = new URLSearchParams(text).get('niche') ?? 'beach-tennis';
+    }
     const result = await curateScrapedNews(niche);
     return NextResponse.json({ ...result, niche });
   } catch (err) {

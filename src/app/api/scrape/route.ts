@@ -4,9 +4,18 @@ import { startIngestBackground } from '@/services/ingest-bg.service';
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json().catch(() => ({}));
-    const source = body.source ?? 'both';
-    const niche = body.niche ?? 'beach-tennis';
+    let source = 'both';
+    let niche = 'beach-tennis';
+    try {
+      const body = await request.json();
+      if (body?.source) source = body.source;
+      if (body?.niche) niche = body.niche;
+    } catch {
+      const text = await request.text().catch(() => '');
+      const params = new URLSearchParams(text);
+      source = params.get('source') ?? 'both';
+      niche = params.get('niche') ?? 'beach-tennis';
+    }
 
     if (!['tiktok', 'youtube', 'both'].includes(source)) {
       return NextResponse.json(
