@@ -31,9 +31,6 @@ services:
       # Groq — geração de legendas e classificação
       GROQ_API_KEY: ${GROQ_API_KEY}
 
-      # Segurança — valida chamadas internas do scrapper-cron
-      CRON_SECRET: ${CRON_SECRET:-}
-
       # FFmpeg Worker — aponta para o serviço interno
       FFMPEG_WORKER_URL: http://scrapper-worker:3001
 
