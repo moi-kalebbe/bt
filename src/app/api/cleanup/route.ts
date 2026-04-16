@@ -25,19 +25,33 @@ const BEACH_TENNIS_REJECT = [
 // ─── Keywords: IA & Tech ──────────────────────────────────────────────────────
 
 const AI_TECH_POSITIVE = [
-  'llm', 'langchain', 'ai agent', 'aiagent', 'prompt engineering', 'promptengineering',
-  'ai automation', 'aiautomation', 'n8n', 'openai', 'anthropic', 'claude ai', 'claudeai',
-  'chatgpt', 'gemini', 'llmops', 'machine learning', 'deep learning', 'neural network',
-  'vibe coding', 'vibecoding', 'ai programming', 'aiprogramming', 'cursor ai',
-  'github copilot', 'inteligência artificial', 'automação com ia', 'agente de ia',
-  'ai workflow', 'aiworkflow', 'openai api', 'openaiapi', 'fine-tuning', 'rag ',
-  '#llm', '#aiagents', '#promptengineering', '#n8n', '#langchain', '#vibecoding',
-  '#machinelearning', '#deeplearning', '#llmops', '#aiautomation',
+  // PT-BR (sem acento, como aparece em hashtags)
+  'inteligenciaartificial', 'iaautomacao', 'automacaocomia', 'agentesia',
+  'agentesde ia', 'programacaocomia', 'cursorinteligenciaartificial',
+  'iaparainiiciantes', 'aiagentsbrasil', 'n8nautomacao',
+  // PT-BR (com acento, como aparece em texto)
+  'inteligência artificial', 'automação com ia', 'agente de ia',
+  'ia generativa', 'ia no brasil', 'aprender ia',
+  // Técnicos universais
+  'llm', 'langchain', 'aiagent', 'ai agent', 'promptengineering', 'prompt engineering',
+  'n8n', 'openai', 'anthropic', 'chatgpt', 'gemini', 'claude ai', 'claudeai',
+  'llmops', 'machine learning', 'deep learning', 'neural network', 'vibecoding',
+  'vibe coding', 'aiprogramming', 'cursor ai', 'github copilot', 'fine-tuning',
+  'rag', 'aiworkflow', 'openaiapi', 'crewai', 'langchain',
 ];
 
 const AI_TECH_REJECT = [
+  // Beach tennis
   'beach tennis', 'beachtennis', 'beach_tennis', 'raquete de praia', 'beachtenista',
   'torneio bt', 'circuito bt', '#beachtennis',
+  // Geração de imagem/entretenimento (PT-BR)
+  'ia gerou', 'ia criou', 'ia fez', 'ia desenhou', 'ia cantando',
+  'ia dublou', 'ia transformou', 'filtro de ia', 'filtro ia',
+  // Geração de imagem/entretenimento (EN)
+  'midjourney', 'stable diffusion', 'dall-e', 'sora', 'runway ml',
+  'ai art', 'ai drew', 'ai generated', 'ai made this', 'kling',
+  // Reação/entretenimento
+  'chatgpt responde', 'ia responde', 'ai roast', 'ia reage', 'ai react',
 ];
 
 // ─── Classificação por keywords ───────────────────────────────────────────────

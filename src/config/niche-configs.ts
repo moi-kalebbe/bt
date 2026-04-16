@@ -151,35 +151,17 @@ const aiTechConfig: NicheConfig = {
   ],
   youtubeQuery: 'inteligência artificial automação tutorial português',
   videoRejectKeywords: [
-    // Conteúdo de geração de imagem/vídeo (não técnico)
-    'vo3',
-    'sora',
-    'runway ml',
-    'midjourney',
-    'stable diffusion',
-    'ai art',
-    'ai drew',
-    'ai generated',
-    'ia gerou',
-    'ia criou',
-    'ai fez',
-    'ai made this',
-    'chatgpt responde',
-    'ia responde',
-    'ai roast',
-    'ia reage',
-    'ai react',
-    'dall-e',
-    'kling',
-    // Conteúdo claramente off-topic: beach tennis
-    'beach tennis',
-    'beachtennis',
-    'beach_tennis',
-    'raquete de praia',
-    'beachtenista',
-    'btbrasil',
-    'torneio de beach',
-    'circuito de beach',
+    // Geração de imagem/vídeo com IA (entretenimento, não técnico) — PT-BR
+    'ia gerou', 'ia criou', 'ia fez', 'ia desenhou', 'ia cantando',
+    'ia dublou', 'ia transformou', 'filtro de ia', 'filtro ia',
+    // Geração de imagem/vídeo com IA — EN
+    'midjourney', 'stable diffusion', 'dall-e', 'sora', 'runway ml',
+    'ai art', 'ai drew', 'ai generated', 'ai made this', 'kling', 'vo3',
+    // Reação/entretenimento
+    'chatgpt responde', 'ia responde', 'ai roast', 'ia reage', 'ai react',
+    // Off-topic: beach tennis
+    'beach tennis', 'beachtennis', 'beach_tennis', 'raquete de praia',
+    'beachtenista', 'btbrasil', 'torneio de beach', 'circuito de beach',
   ],
   blockedAuthors: {
     tiktok: [],
