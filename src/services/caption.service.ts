@@ -1,12 +1,21 @@
 import type { ContentItem } from '@/types/domain';
 import { getNicheConfig } from '@/config/niche-configs';
+import { getNicheSettings } from '@/infra/supabase/repositories/niche-settings.repository';
 
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
 
 export async function generateCaption(content: ContentItem): Promise<string> {
   const apiKey = process.env.GROQ_API_KEY;
-  const nicheConfig = getNicheConfig(content.niche ?? 'beach-tennis');
-  const { accountHandle, accountTag, topicLabel, emoji } = nicheConfig.captionConfig;
+  const nicheId = content.niche ?? 'beach-tennis';
+  const nicheConfig = getNicheConfig(nicheId);
+  // DB tem prioridade sobre niche-configs.ts
+  const dbSettings = await getNicheSettings(nicheId).catch(() => null);
+  const captionCfg = {
+    ...nicheConfig.captionConfig,
+    accountHandle: dbSettings?.caption_account_handle || nicheConfig.captionConfig.accountHandle,
+    accountTag:    dbSettings?.caption_account_tag    || nicheConfig.captionConfig.accountTag,
+  };
+  const { accountHandle, accountTag, topicLabel, emoji } = captionCfg;
 
   if (!apiKey) {
     return buildFallbackCaption(content, nicheConfig.captionConfig);
@@ -77,10 +86,10 @@ Responda APENAS com a legenda, sem comentários adicionais.`;
 
     const data = await res.json();
     const text: string = data.choices?.[0]?.message?.content ?? '';
-    return text.trim() || buildFallbackCaption(content, nicheConfig.captionConfig);
+    return text.trim() || buildFallbackCaption(content, captionCfg);
   } catch (err) {
     console.warn('[caption] Erro ao gerar legenda, usando fallback:', err);
-    return buildFallbackCaption(content, nicheConfig.captionConfig);
+    return buildFallbackCaption(content, captionCfg);
   }
 }
 

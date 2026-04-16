@@ -1,5 +1,6 @@
 import { findContentById, setContentPublished } from '@/infra/supabase/repositories/content.repository';
 import { updatePublishJobStatus } from '@/infra/supabase/repositories/publish-jobs.repository';
+import { getNicheSettings } from '@/infra/supabase/repositories/niche-settings.repository';
 import { supabase } from '@/infra/supabase/client';
 import { zernioPost, type ZernioPlatform, type ZernioResult } from '@/infra/zernio/client';
 import { generateCaption } from '@/services/caption.service';
@@ -55,8 +56,16 @@ export async function publishVideo(
     const caption = await generateCaption(content);
 
     const niche = content.niche ?? 'beach-tennis';
-    const nicheConfig = getNicheConfig(niche);
-    const accountId = nicheConfig.zernioAccountIds[platform] || undefined;
+    // DB tem prioridade sobre niche-configs.ts (editável via UI de settings)
+    const [dbSettings, staticConfig] = await Promise.all([
+      getNicheSettings(niche).catch(() => null),
+      Promise.resolve(getNicheConfig(niche)),
+    ]);
+    const zernioIdKey = `zernio_${platform}_id` as keyof typeof dbSettings;
+    const accountId =
+      (dbSettings?.[zernioIdKey] as string | null | undefined) ||
+      staticConfig.zernioAccountIds[platform] ||
+      undefined;
     const apiResult = await zernioPost(platform, videoUrl, caption, accountId);
 
     if (apiResult.success) {

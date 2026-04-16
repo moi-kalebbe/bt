@@ -296,6 +296,38 @@ export type Database = {
           created_at?: string;
         };
       };
+      niche_settings: {
+        Row: {
+          niche_id: string;
+          zernio_instagram_id: string | null;
+          zernio_tiktok_id: string | null;
+          zernio_youtube_id: string | null;
+          zernio_facebook_id: string | null;
+          caption_account_handle: string | null;
+          caption_account_tag: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          niche_id: string;
+          zernio_instagram_id?: string | null;
+          zernio_tiktok_id?: string | null;
+          zernio_youtube_id?: string | null;
+          zernio_facebook_id?: string | null;
+          caption_account_handle?: string | null;
+          caption_account_tag?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          niche_id?: string;
+          zernio_instagram_id?: string | null;
+          zernio_tiktok_id?: string | null;
+          zernio_youtube_id?: string | null;
+          zernio_facebook_id?: string | null;
+          caption_account_handle?: string | null;
+          caption_account_tag?: string | null;
+          updated_at?: string;
+        };
+      };
       news_items: {
         Row: {
           id: string;

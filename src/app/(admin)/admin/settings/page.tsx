@@ -1,5 +1,7 @@
 import { findBlockedAuthors, createBlockedAuthor, deleteBlockedAuthor } from '@/infra/supabase/repositories/blocked-authors.repository';
+import { getAllNicheSettings, upsertNicheSettings } from '@/infra/supabase/repositories/niche-settings.repository';
 import { supabase } from '@/infra/supabase/client';
+import { NICHES } from '@/config/niches';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -11,29 +13,114 @@ import { revalidatePath } from 'next/cache';
 export const dynamic = 'force-dynamic';
 
 const ENV_CHECKS = [
-  { label: 'Supabase URL', key: 'NEXT_PUBLIC_SUPABASE_URL' },
-  { label: 'R2 Bucket', key: 'R2_BUCKET_NAME' },
-  { label: 'Upstash Redis', key: 'UPSTASH_REDIS_REST_URL' },
-  { label: 'Apify Token', key: 'APIFY_TOKEN' },
-  { label: 'Zernio API Key', key: 'ZERNIO_API_KEY' },
-  { label: 'Cron Secret', key: 'CRON_SECRET' },
+  { label: 'Supabase URL',    key: 'NEXT_PUBLIC_SUPABASE_URL' },
+  { label: 'R2 Bucket',       key: 'R2_BUCKET_NAME' },
+  { label: 'Apify Token (BT)', key: 'APIFY_TOKEN' },
+  { label: 'Apify Token (IA)', key: 'APIFY_TOKEN_AI' },
+  { label: 'Zernio API Key',  key: 'ZERNIO_API_KEY' },
+  { label: 'Groq API Key',    key: 'GROQ_API_KEY' },
+  { label: 'Cron Secret',     key: 'CRON_SECRET' },
 ];
 
 export default async function SettingsPage() {
-  const [blockedAuthors, publishTargets] = await Promise.all([
+  const [blockedAuthors, publishTargets, nicheSettingsList] = await Promise.all([
     findBlockedAuthors(),
     supabase.from('publish_targets').select().eq('active', true),
+    getAllNicheSettings().catch(() => []),
   ]);
 
   const targets = publishTargets.data ?? [];
+  const settingsMap = Object.fromEntries(nicheSettingsList.map((s) => [s.niche_id, s]));
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-4xl">
       <div>
         <h1 className="text-xl font-bold">Configurações</h1>
-        <p className="text-sm text-muted-foreground">Gerencie autores, destinos e variáveis de ambiente</p>
+        <p className="text-sm text-muted-foreground">Gerencie contas, autores, destinos e variáveis de ambiente</p>
       </div>
 
+      {/* ── Contas por Nicho ─────────────────────────────────────────────────── */}
+      <div>
+        <h2 className="text-base font-semibold mb-3">Contas por Nicho</h2>
+        <div className="grid gap-4 md:grid-cols-2">
+          {NICHES.map((niche) => {
+            const s = settingsMap[niche.id];
+            return (
+              <Card key={niche.id}>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <span>{niche.icon}</span>
+                    {niche.label}
+                  </CardTitle>
+                  <CardDescription>IDs Zernio e handles de legenda</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form
+                    action={async (formData: FormData) => {
+                      'use server';
+                      const nicheId = formData.get('niche_id') as string;
+                      await upsertNicheSettings(nicheId, {
+                        zernio_instagram_id: (formData.get('zernio_instagram_id') as string) || null,
+                        zernio_tiktok_id:    (formData.get('zernio_tiktok_id')    as string) || null,
+                        zernio_youtube_id:   (formData.get('zernio_youtube_id')   as string) || null,
+                        zernio_facebook_id:  (formData.get('zernio_facebook_id')  as string) || null,
+                        caption_account_handle: (formData.get('caption_account_handle') as string) || null,
+                        caption_account_tag:    (formData.get('caption_account_tag')    as string) || null,
+                      });
+                      revalidatePath('/admin/settings');
+                    }}
+                    className="space-y-3"
+                  >
+                    <input type="hidden" name="niche_id" value={niche.id} />
+
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Zernio</p>
+                      <div className="grid grid-cols-[80px_1fr] items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Instagram</span>
+                        <Input name="zernio_instagram_id" defaultValue={s?.zernio_instagram_id ?? ''} placeholder="ID da conta" className="h-8 text-xs font-mono" />
+                      </div>
+                      <div className="grid grid-cols-[80px_1fr] items-center gap-2">
+                        <span className="text-xs text-muted-foreground">TikTok</span>
+                        <Input name="zernio_tiktok_id" defaultValue={s?.zernio_tiktok_id ?? ''} placeholder="ID da conta" className="h-8 text-xs font-mono" />
+                      </div>
+                      <div className="grid grid-cols-[80px_1fr] items-center gap-2">
+                        <span className="text-xs text-muted-foreground">YouTube</span>
+                        <Input name="zernio_youtube_id" defaultValue={s?.zernio_youtube_id ?? ''} placeholder="ID da conta" className="h-8 text-xs font-mono" />
+                      </div>
+                      <div className="grid grid-cols-[80px_1fr] items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Facebook</span>
+                        <Input name="zernio_facebook_id" defaultValue={s?.zernio_facebook_id ?? ''} placeholder="ID da conta" className="h-8 text-xs font-mono" />
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Legenda</p>
+                      <div className="grid grid-cols-[80px_1fr] items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Handle</span>
+                        <Input name="caption_account_handle" defaultValue={s?.caption_account_handle ?? ''} placeholder="@conta" className="h-8 text-xs" />
+                      </div>
+                      <div className="grid grid-cols-[80px_1fr] items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Hashtag</span>
+                        <Input name="caption_account_tag" defaultValue={s?.caption_account_tag ?? ''} placeholder="#hashtag" className="h-8 text-xs" />
+                      </div>
+                    </div>
+
+                    <Button type="submit" size="sm" className="w-full h-8 text-xs">
+                      Salvar {niche.label}
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* ── Demais configurações ─────────────────────────────────────────────── */}
       <div className="grid gap-6 md:grid-cols-2">
         {/* Blocked Authors */}
         <Card>
@@ -43,7 +130,7 @@ export default async function SettingsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <form
-              action={async (formData) => {
+              action={async (formData: FormData) => {
                 'use server';
                 const source = formData.get('source') as string;
                 const username = formData.get('username') as string;
@@ -143,13 +230,11 @@ export default async function SettingsPage() {
                 return (
                   <div key={key} className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">{label}</span>
-                    <span className={ok ? 'text-green-500' : 'text-destructive'}>
-                      {ok ? (
-                        <CheckCircle2 className="h-4 w-4" />
-                      ) : (
-                        <XCircle className="h-4 w-4" />
-                      )}
-                    </span>
+                    {ok ? (
+                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-destructive" />
+                    )}
                   </div>
                 );
               })}
