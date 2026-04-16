@@ -153,19 +153,25 @@ function buildTextSvg(
   const SUMMARY_LINE_H = 46;
 
   // Remove prefixo redundante "Beach Tennis:" do título (o chip já informa)
-  const cleanTitle = title.replace(/^beach\s+tennis\s*[:\-–]\s*/i, '').trim();
+  const rawTitle = title.replace(/^beach\s+tennis\s*[:\-–]\s*/i, '').trim();
 
-  const titleLines = wrapText(cleanTitle, 52, canvasW - MARGIN * 2).slice(0, 4);
-  const summaryLines = wrapText(summary, 28, canvasW - MARGIN * 2).slice(0, 3);
+  // Limites de caracteres — garante preenchimento visual consistente
+  const MAX_TITLE_CHARS = 80;
+  const MAX_SUMMARY_CHARS = 160;
+  const cleanTitle = truncateAtWord(rawTitle, MAX_TITLE_CHARS);
+  const cleanSummary = truncateAtWord(summary ?? '', MAX_SUMMARY_CHARS);
 
-  // Build content from bottom up — SOURCE_Y mais alto para preencher o espaço escuro
-  const SOURCE_Y = canvasH - 250;        // sobe o bloco de texto
-  const summaryEndY = SOURCE_Y - 56;     // last summary line baseline
+  const titleLines = wrapText(cleanTitle, 52, canvasW - MARGIN * 2).slice(0, 3);
+  const summaryLines = wrapText(cleanSummary, 28, canvasW - MARGIN * 2).slice(0, 3);
+
+  // Build content from bottom up
+  const SOURCE_Y   = canvasH - 250;                                          // fonte
+  const summaryEndY   = SOURCE_Y - 80;                                       // ↑ mais espaço
   const summaryStartY = summaryEndY - (summaryLines.length - 1) * SUMMARY_LINE_H;
-  const RULE_Y = summaryStartY - 28;     // accent divider line
-  const titleEndY = RULE_Y - 36;
-  const titleStartY = titleEndY - (titleLines.length - 1) * TITLE_LINE_H;
-  const CHIP_Y = titleStartY - 56;       // category chip baseline
+  const RULE_Y        = summaryStartY - 44;                                  // ↑ mais espaço
+  const titleEndY     = RULE_Y - 52;                                         // ↑ mais espaço
+  const titleStartY   = titleEndY - (titleLines.length - 1) * TITLE_LINE_H;
+  const CHIP_Y        = titleStartY - 72;                                    // ↑ mais espaço
 
   // Chip dimensions (estimate ~14px per char at font-size 20)
   const CHIP_LABEL = 'BEACH TENNIS';
@@ -233,6 +239,13 @@ function buildTextSvg(
     <!-- Bottom accent bar -->
     <rect x="0" y="${canvasH - 8}" width="${canvasW}" height="8" fill="${ACCENT}"/>
   </svg>`;
+}
+
+/** Trunca no limite de caracteres respeitando a última palavra completa. */
+function truncateAtWord(text: string, max: number): string {
+  if (!text || text.length <= max) return text;
+  const cut = text.slice(0, max).replace(/\s+\S*$/, '');
+  return cut + '…';
 }
 
 /**
