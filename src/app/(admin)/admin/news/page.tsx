@@ -4,28 +4,40 @@ import { NewsList } from './news-list';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { RefreshCw, Sparkles } from 'lucide-react';
+import { NICHES } from '@/config/niches';
 import type { NewsStatus } from '@/types/domain';
 
 export const dynamic = 'force-dynamic';
 
 interface PageProps {
-  searchParams: Promise<{ status?: string; page?: string }>;
+  searchParams: Promise<{ status?: string; page?: string; niche?: string }>;
 }
 
 export default async function NewsPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const status = params.status as NewsStatus | undefined;
   const page = Math.max(1, parseInt(params.page ?? '1', 10));
+  const niche = params.niche ?? 'beach-tennis';
   const limit = 20;
   const offset = (page - 1) * limit;
 
-  const { items, total } = await findNewsItems({ status, limit, offset });
+  const { items, total } = await findNewsItems({ status, niche, limit, offset });
+
+  const nicheLabel = NICHES.find((n) => n.id === niche)?.label ?? niche;
+
+  function buildHref(s: string) {
+    const p = new URLSearchParams();
+    if (s) p.set('status', s);
+    if (niche !== 'beach-tennis') p.set('niche', niche);
+    const qs = p.toString();
+    return `/admin/news${qs ? `?${qs}` : ''}`;
+  }
 
   return (
     <div className="p-4 md:p-6 space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-xl font-bold tracking-tight">Notícias Beach Tennis</h1>
+          <h1 className="text-xl font-bold tracking-tight">Notícias — {nicheLabel}</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             {total} {total === 1 ? 'notícia' : 'notícias'} encontradas
           </p>
@@ -45,7 +57,7 @@ export default async function NewsPage({ searchParams }: PageProps) {
               : s === 'story_composed' ? 'Story Pronto'
               : s === 'published'  ? 'Publicadas'
               : 'Falhas';
-            const href = s ? `/admin/news?status=${s}` : '/admin/news';
+            const href = buildHref(s);
             const active = (status ?? '') === s;
             return (
               <a
@@ -63,6 +75,7 @@ export default async function NewsPage({ searchParams }: PageProps) {
           })}
 
           <form action="/api/news/curate" method="POST">
+            <input type="hidden" name="niche" value={niche} />
             <Button type="submit" variant="outline" size="sm">
               <Sparkles className="mr-2 h-4 w-4" />
               Curar
@@ -70,6 +83,7 @@ export default async function NewsPage({ searchParams }: PageProps) {
           </form>
 
           <form action="/api/news/fetch" method="POST">
+            <input type="hidden" name="niche" value={niche} />
             <Button type="submit" variant="outline" size="sm">
               <RefreshCw className="mr-2 h-4 w-4" />
               Buscar Notícias
@@ -85,6 +99,7 @@ export default async function NewsPage({ searchParams }: PageProps) {
           page={page}
           limit={limit}
           status={status}
+          niche={niche}
         />
       </Suspense>
     </div>

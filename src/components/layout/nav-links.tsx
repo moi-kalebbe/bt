@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { LayoutGrid, CalendarDays, Settings, Newspaper } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -18,6 +18,13 @@ interface NavLinksProps {
 
 export function NavLinks({ onNavigate }: NavLinksProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const niche = searchParams.get('niche');
+
+  function buildHref(base: string) {
+    if (!niche || niche === 'beach-tennis') return base;
+    return `${base}?niche=${niche}`;
+  }
 
   return (
     <nav className="flex flex-col gap-1">
@@ -26,7 +33,7 @@ export function NavLinks({ onNavigate }: NavLinksProps) {
         return (
           <Link
             key={href}
-            href={href}
+            href={buildHref(href)}
             onClick={onNavigate}
             className={cn(
               'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',

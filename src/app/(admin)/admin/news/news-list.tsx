@@ -21,9 +21,10 @@ interface NewsListProps {
   page: number;
   limit: number;
   status?: NewsStatus;
+  niche?: string;
 }
 
-export function NewsList({ items, total, page, limit, status }: NewsListProps) {
+export function NewsList({ items, total, page, limit, status, niche }: NewsListProps) {
   const totalPages = Math.ceil(total / limit);
 
   if (items.length === 0) {
@@ -66,7 +67,7 @@ export function NewsList({ items, total, page, limit, status }: NewsListProps) {
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-2">
           <Button variant="outline" size="sm" disabled={page <= 1} asChild>
-            <Link href={buildHref({ status, page: page - 1 })}>
+            <Link href={buildHref({ status, niche, page: page - 1 })}>
               <ChevronLeft className="h-4 w-4" />
               Anterior
             </Link>
@@ -75,7 +76,7 @@ export function NewsList({ items, total, page, limit, status }: NewsListProps) {
             Página {page} de {totalPages}
           </span>
           <Button variant="outline" size="sm" disabled={page >= totalPages} asChild>
-            <Link href={buildHref({ status, page: page + 1 })}>
+            <Link href={buildHref({ status, niche, page: page + 1 })}>
               Próxima
               <ChevronRight className="h-4 w-4" />
             </Link>
@@ -263,9 +264,10 @@ function StatusBadge({ status }: { status: NewsStatus }) {
   );
 }
 
-function buildHref(params: { status?: NewsStatus; page?: number }): string {
+function buildHref(params: { status?: NewsStatus; niche?: string; page?: number }): string {
   const sp = new URLSearchParams();
   if (params.status) sp.set('status', params.status);
+  if (params.niche && params.niche !== 'beach-tennis') sp.set('niche', params.niche);
   if (params.page && params.page > 1) sp.set('page', String(params.page));
   const qs = sp.toString();
   return `/admin/news${qs ? `?${qs}` : ''}`;

@@ -16,6 +16,7 @@ interface PageProps {
     author?: string;
     slot?: string;
     page?: string;
+    niche?: string;
   }>;
 }
 
@@ -27,6 +28,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
   const author = params.author ?? '';
   const slot = params.slot as Slot | undefined;
   const page = parseInt(params.page ?? '1', 10);
+  const niche = params.niche ?? 'beach-tennis';
   const limit = 20;
   const offset = (page - 1) * limit;
 
@@ -42,6 +44,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
             </Button>
           </form>
           <form action="/api/scrape" method="POST">
+            <input type="hidden" name="niche" value={niche} />
             <Button type="submit" variant="outline" size="sm">
               <RefreshCw className="mr-2 h-4 w-4" />
               Coleta
@@ -109,6 +112,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
               status={status}
               author={author}
               slot={slot}
+              niche={niche}
               limit={limit}
               offset={offset}
               page={page}

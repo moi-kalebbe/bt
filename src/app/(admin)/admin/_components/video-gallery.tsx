@@ -10,6 +10,7 @@ interface VideoGalleryProps {
   status?: ContentStatus;
   author?: string;
   slot?: Slot;
+  niche?: string;
   limit: number;
   offset: number;
   page: number;
@@ -20,6 +21,7 @@ export async function VideoGallery({
   status,
   author,
   slot,
+  niche,
   limit,
   offset,
   page,
@@ -29,6 +31,7 @@ export async function VideoGallery({
     status,
     authorUsername: author || undefined,
     selectedForSlot: slot,
+    niche: niche || undefined,
     limit,
     offset,
   });
@@ -70,7 +73,7 @@ export async function VideoGallery({
             asChild
           >
             <Link
-              href={`/admin?${buildQueryString({ source, status, author, slot, page: page - 1 })}`}
+              href={`/admin?${buildQueryString({ source, status, author, slot, niche, page: page - 1 })}`}
             >
               <ChevronLeft className="h-4 w-4" />
               Anterior
@@ -86,7 +89,7 @@ export async function VideoGallery({
             asChild
           >
             <Link
-              href={`/admin?${buildQueryString({ source, status, author, slot, page: page + 1 })}`}
+              href={`/admin?${buildQueryString({ source, status, author, slot, niche, page: page + 1 })}`}
             >
               Próxima
               <ChevronRight className="h-4 w-4" />
@@ -103,6 +106,7 @@ function buildQueryString(params: {
   status?: ContentStatus;
   author?: string;
   slot?: Slot;
+  niche?: string;
   page?: number;
 }): string {
   const searchParams = new URLSearchParams();
@@ -110,6 +114,7 @@ function buildQueryString(params: {
   if (params.status) searchParams.set('status', params.status);
   if (params.author) searchParams.set('author', params.author);
   if (params.slot) searchParams.set('slot', params.slot);
+  if (params.niche && params.niche !== 'beach-tennis') searchParams.set('niche', params.niche);
   if (params.page && params.page > 1) searchParams.set('page', String(params.page));
   return searchParams.toString();
 }
