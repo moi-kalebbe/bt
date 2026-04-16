@@ -3,7 +3,7 @@ import { findNewsItems } from '@/infra/supabase/repositories/news.repository';
 import { NewsList } from './news-list';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Sparkles } from 'lucide-react';
 import type { NewsStatus } from '@/types/domain';
 
 export const dynamic = 'force-dynamic';
@@ -33,37 +33,41 @@ export default async function NewsPage({ searchParams }: PageProps) {
 
         <div className="flex items-center gap-2 flex-wrap">
           {/* Status filter links */}
-          {(['', 'discovered', 'scraped', 'story_composed', 'published', 'failed'] as const).map(
-            (s) => {
-              const label =
-                s === ''
-                  ? 'Todas'
-                  : s === 'discovered'
-                  ? 'Descobertas'
-                  : s === 'scraped'
-                  ? 'Raspadas'
-                  : s === 'story_composed'
-                  ? 'Story Pronto'
-                  : s === 'published'
-                  ? 'Publicadas'
-                  : 'Falhas';
-              const href = s ? `/admin/news?status=${s}` : '/admin/news';
-              const active = (status ?? '') === s;
-              return (
-                <a
-                  key={s}
-                  href={href}
-                  className={`text-xs px-3 py-1 rounded-full border transition-colors ${
-                    active
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                  }`}
-                >
-                  {label}
-                </a>
-              );
-            }
-          )}
+          {(
+            ['', 'discovered', 'scraped', 'curated', 'rejected', 'story_composed', 'published', 'failed'] as const
+          ).map((s) => {
+            const label =
+              s === ''             ? 'Todas'
+              : s === 'discovered' ? 'Descobertas'
+              : s === 'scraped'    ? 'Raspadas'
+              : s === 'curated'    ? 'Curadas'
+              : s === 'rejected'   ? 'Rejeitadas'
+              : s === 'story_composed' ? 'Story Pronto'
+              : s === 'published'  ? 'Publicadas'
+              : 'Falhas';
+            const href = s ? `/admin/news?status=${s}` : '/admin/news';
+            const active = (status ?? '') === s;
+            return (
+              <a
+                key={s}
+                href={href}
+                className={`text-xs px-3 py-1 rounded-full border transition-colors ${
+                  active
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                }`}
+              >
+                {label}
+              </a>
+            );
+          })}
+
+          <form action="/api/news/curate" method="POST">
+            <Button type="submit" variant="outline" size="sm">
+              <Sparkles className="mr-2 h-4 w-4" />
+              Curar
+            </Button>
+          </form>
 
           <form action="/api/news/fetch" method="POST">
             <Button type="submit" variant="outline" size="sm">

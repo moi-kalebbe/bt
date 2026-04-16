@@ -67,6 +67,15 @@ async function ingest()        { await call('ingest',         '/api/ingest');   
 async function publish()       { await call('publish',        '/api/publish/run');          }
 async function processQueue()  { await call('process-queue',  '/api/process-queue?limit=1'); }
 
+async function newsPipeline() {
+  console.log('\n── Pipeline de notícias iniciado ────────────────────────────');
+  await call('news-fetch',           '/api/news/fetch');
+  await call('news-curate',          '/api/news/curate');
+  await call('news-compose-pending', '/api/news/compose-pending');
+  await call('news-publish-today',   '/api/news/publish-today');
+  console.log('── Pipeline de notícias concluído ───────────────────────────\n');
+}
+
 // ─── Scheduler helpers ────────────────────────────────────────────────────────
 
 /** Retorna ms até o próximo HH:MM no fuso de Brasília. */
@@ -105,6 +114,9 @@ scheduleDaily(8,  0,  publish,         'publish-1');  // 08:00 BRT
 scheduleDaily(11, 30, publish,         'publish-2');  // 11:30 BRT
 scheduleDaily(18, 0,  publish,         'publish-3');  // 18:00 BRT
 scheduleDaily(21, 30, publish,         'publish-4');  // 21:30 BRT
+
+scheduleDaily(8,  0,  newsPipeline,    'news-8h');    // 08:00 BRT — notícias matutinas
+scheduleDaily(20, 0,  newsPipeline,    'news-20h');   // 20:00 BRT — notícias noturnas
 
 scheduleInterval(30 * MIN, ingest,       'ingest');
 scheduleInterval(5  * MIN, processQueue, 'process-queue');

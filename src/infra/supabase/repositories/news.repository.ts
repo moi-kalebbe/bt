@@ -117,3 +117,43 @@ export async function setNewsPublished(id: string): Promise<NewsItem> {
     published_at_instagram: new Date().toISOString(),
   });
 }
+
+/** Retorna todos os itens com o status informado (sem paginação). */
+export async function findNewsByStatus(
+  status: NewsStatus,
+  limit = 100
+): Promise<NewsItem[]> {
+  const { data, error } = await supabase
+    .from('news_items')
+    .select()
+    .eq('status', status)
+    .order('created_at', { ascending: true })
+    .limit(limit);
+
+  if (error) throw error;
+  return (data ?? []) as NewsItem[];
+}
+
+/**
+ * Retorna itens com status 'story_composed' criados hoje no fuso de Brasília (UTC-3).
+ * "Hoje BRT" = created_at >= início do dia atual em UTC-3.
+ */
+export async function findTodayStoryComposed(): Promise<NewsItem[]> {
+  // Início do dia corrente em BRT convertido para UTC
+  const now = new Date();
+  const brtOffsetMs = -3 * 60 * 60 * 1000;
+  const nowBRT = new Date(now.getTime() + brtOffsetMs);
+  const startOfDayBRT = new Date(nowBRT);
+  startOfDayBRT.setUTCHours(0, 0, 0, 0);
+  const startOfDayUTC = new Date(startOfDayBRT.getTime() - brtOffsetMs);
+
+  const { data, error } = await supabase
+    .from('news_items')
+    .select()
+    .eq('status', 'story_composed')
+    .gte('created_at', startOfDayUTC.toISOString())
+    .order('created_at', { ascending: true });
+
+  if (error) throw error;
+  return (data ?? []) as NewsItem[];
+}

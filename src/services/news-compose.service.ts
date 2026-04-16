@@ -3,6 +3,7 @@ import { uploadToR2, getPublicUrl } from '@/infra/r2/client';
 import { buildNewsStoryPath } from '@/infra/r2/paths';
 import {
   findNewsItemById,
+  findNewsByStatus,
   updateNewsItem,
   setNewsStatus,
 } from '@/infra/supabase/repositories/news.repository';
@@ -91,6 +92,21 @@ export async function composeStoryArt(newsItemId: string): Promise<ComposeResult
     await setNewsStatus(newsItemId, 'failed', `Compose error: ${msg}`);
     return { success: false, error: msg };
   }
+}
+
+/** Compõe story art para todos os itens com status 'curated'. */
+export async function composeAllCurated(): Promise<{ composed: number; failed: number }> {
+  const items = await findNewsByStatus('curated');
+  let composed = 0;
+  let failed = 0;
+
+  for (const item of items) {
+    const result = await composeStoryArt(item.id);
+    if (result.success) composed++;
+    else failed++;
+  }
+
+  return { composed, failed };
 }
 
 async function fetchCoverImage(

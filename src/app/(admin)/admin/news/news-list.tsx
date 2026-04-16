@@ -124,7 +124,7 @@ function NewsRow({ item }: { item: NewsItem }) {
       });
 
   const canCompose =
-    (item.status === 'scraped' || item.status === 'failed') &&
+    (item.status === 'curated' || item.status === 'scraped' || item.status === 'failed') &&
     Boolean(item.cover_image_r2_key || item.cover_image_url);
 
   const canPublish = item.status === 'story_composed';
@@ -230,6 +230,14 @@ function StatusBadge({ status }: { status: NewsStatus }) {
     scraped: {
       label: 'Raspada',
       className: 'bg-blue-500/10 text-blue-600 border-blue-500/30',
+    },
+    curated: {
+      label: 'Curada',
+      className: 'bg-emerald-500/10 text-emerald-700 border-emerald-500/30',
+    },
+    rejected: {
+      label: 'Rejeitada',
+      className: 'bg-zinc-500/10 text-zinc-500 border-zinc-500/30',
     },
     story_composed: {
       label: 'Story Pronto',

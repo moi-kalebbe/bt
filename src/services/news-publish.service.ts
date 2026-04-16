@@ -1,4 +1,4 @@
-import { findNewsItemById, setNewsPublished, setNewsStatus } from '@/infra/supabase/repositories/news.repository';
+import { findNewsItemById, findTodayStoryComposed, setNewsPublished, setNewsStatus } from '@/infra/supabase/repositories/news.repository';
 import { getPublicUrl } from '@/infra/r2/client';
 import { zernioImagePost } from '@/infra/zernio/client';
 
@@ -41,6 +41,26 @@ export async function publishNewsStory(newsItemId: string): Promise<PublishNewsR
     await setNewsStatus(newsItemId, 'failed', `Publish error: ${msg}`);
     return { success: false, error: msg };
   }
+}
+
+/** Publica todas as notícias do dia com story art pronto. */
+export async function publishTodayNews(): Promise<{ published: number; failed: number }> {
+  const items = await findTodayStoryComposed();
+  let published = 0;
+  let failed = 0;
+
+  for (const item of items) {
+    const result = await publishNewsStory(item.id);
+    if (result.success) {
+      published++;
+    } else {
+      failed++;
+      // Se atingiu limite diário do Zernio, para imediatamente
+      if (result.error?.toLowerCase().includes('daily limit')) break;
+    }
+  }
+
+  return { published, failed };
 }
 
 function buildCaption(title: string): string {

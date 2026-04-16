@@ -116,6 +116,8 @@ export interface ProcessingLog {
 export type NewsStatus =
   | 'discovered'
   | 'scraped'
+  | 'curated'
+  | 'rejected'
   | 'story_composed'
   | 'published'
   | 'failed';
@@ -130,6 +132,7 @@ export interface NewsItem {
   author: string | null;
   published_at: string | null;
   scraped_at: string | null;
+  curated_at: string | null;
   cover_image_url: string | null;
   cover_image_r2_key: string | null;
   story_art_r2_key: string | null;
