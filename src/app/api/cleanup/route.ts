@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/infra/supabase/client';
 import { deleteFromR2 } from '@/infra/r2/client';
+import { findContents } from '@/infra/supabase/repositories/content.repository';
 
 // ─── Classificação por keywords ──────────────────────────────────────────────
 
@@ -131,25 +132,15 @@ export async function POST(request: NextRequest) {
     niche = new URLSearchParams(text).get('niche') ?? 'beach-tennis';
   }
 
-  // Busca itens do nicho ainda não publicados e não descartados
-  const { data: items, error } = await supabase
-    .from('content_items')
-    .select('id, title, description, hashtags, author_username, original_video_r2_key, processed_video_r2_key, thumbnail_r2_key, status')
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .eq('niche' as any, niche)
-    .not('status', 'in', '("published","discarded")')
-    .order('created_at', { ascending: false })
-    .limit(500);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  // Busca itens do nicho ainda não publicados — usa findContents que já suporta niche
+  const { items: allItems } = await findContents({ niche, limit: 500 }).catch(() => ({ items: [], total: 0 }));
+  const items = allItems.filter((i) => i.status !== 'published' && i.status !== 'ignored_duplicate');
 
   const toKeep: string[] = [];
   const toReject: string[] = [];
   const uncertain: typeof items = [];
 
-  for (const item of items ?? []) {
+  for (const item of items) {
     const result = classify(item);
     if (result === 'keep') toKeep.push(item.id);
     else if (result === 'reject') toReject.push(item.id);
@@ -173,7 +164,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Coleta as keys R2 dos itens a deletar
-  const rejectItems = (items ?? []).filter((i) => toReject.includes(i.id));
+  const rejectItems = (items).filter((i) => toReject.includes(i.id));
   const r2Keys = rejectItems
     .flatMap((i) => [i.original_video_r2_key, i.processed_video_r2_key, i.thumbnail_r2_key])
     .filter((k): k is string => Boolean(k));
