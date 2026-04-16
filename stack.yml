@@ -19,7 +19,7 @@ services:
       R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
       R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
       R2_BUCKET_NAME: ${R2_BUCKET_NAME:-scraper}
-      NEXT_PUBLIC_R2_PUBLIC_URL: ${NEXT_PUBLIC_R2_PUBLIC_URL}
+      NEXT_PUBLIC_R2_PUBLIC_URL: ${NEXT_PUBLIC_R2_PUBLIC_URL:-https://pub-0eed0550b68f4cc68503c01747ecd16d.r2.dev}
 
       # Apify — nicho Beach Tennis
       APIFY_TOKEN: ${APIFY_TOKEN}
@@ -82,7 +82,7 @@ services:
       R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
       R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
       R2_BUCKET_NAME: ${R2_BUCKET_NAME:-scraper}
-      NEXT_PUBLIC_R2_PUBLIC_URL: ${NEXT_PUBLIC_R2_PUBLIC_URL}
+      NEXT_PUBLIC_R2_PUBLIC_URL: ${NEXT_PUBLIC_R2_PUBLIC_URL:-https://pub-0eed0550b68f4cc68503c01747ecd16d.r2.dev}
       # Callback para o Next.js app (interno) — nome da variável conforme index.ts
       CALLBACK_URL: http://scrapper:3000/api/webhooks/process-complete
     networks:
