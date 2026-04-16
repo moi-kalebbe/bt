@@ -88,6 +88,52 @@ async function pollContainerStatus(containerId: string, accessToken: string): Pr
   return 'TIMEOUT';
 }
 
+/**
+ * Publica uma imagem como Instagram Story via Meta Graph API.
+ */
+export async function metaInstagramStoryPost(
+  accessToken: string,
+  igAccountId: string,
+  imageUrl: string
+): Promise<MetaResult> {
+  try {
+    const containerRes = await fetch(
+      `${GRAPH_BASE}/${igAccountId}/media`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          media_type: 'STORIES',
+          image_url: imageUrl,
+          access_token: accessToken,
+        }),
+      }
+    );
+
+    const containerData = await containerRes.json();
+    if (!containerRes.ok || containerData.error) return handleMetaError(containerData.error);
+
+    const publishRes = await fetch(
+      `${GRAPH_BASE}/${igAccountId}/media_publish`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          creation_id: containerData.id,
+          access_token: accessToken,
+        }),
+      }
+    );
+
+    const publishData = await publishRes.json();
+    if (!publishRes.ok || publishData.error) return handleMetaError(publishData.error);
+
+    return { success: true, postId: publishData.id };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 function handleMetaError(error: { code?: number; message?: string; error_subcode?: number } | undefined): MetaResult {
   if (!error) return { success: false, error: 'Erro desconhecido da Meta API' };
   const msg = error.message ?? 'Erro Meta API';

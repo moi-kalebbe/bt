@@ -1,7 +1,9 @@
 import { findNewsItemById, findTodayStoryComposed, setNewsPublished, setNewsStatus } from '@/infra/supabase/repositories/news.repository';
 import { getPublicUrl } from '@/infra/r2/client';
 import { zernioStoryPost } from '@/infra/zernio/client';
+import { metaInstagramStoryPost } from '@/infra/meta/instagram.client';
 import { getNicheConfig } from '@/config/niche-configs';
+import { getNicheSettings } from '@/infra/supabase/repositories/niche-settings.repository';
 
 export interface PublishNewsResult {
   success: boolean;
@@ -26,10 +28,29 @@ export async function publishNewsStory(newsItemId: string): Promise<PublishNewsR
     }
 
     const imageUrl = getPublicUrl(item.story_art_r2_key);
-
     const niche = item.niche ?? 'beach-tennis';
-    const nicheConfig = getNicheConfig(niche);
-    const accountId = nicheConfig.zernioAccountIds.instagram || undefined;
+    const [dbSettings, nicheConfig] = await Promise.all([
+      getNicheSettings(niche).catch(() => null),
+      Promise.resolve(getNicheConfig(niche)),
+    ]);
+
+    // Tenta Meta primeiro se configurado, cai no Zernio se falhar
+    if (dbSettings?.meta_access_token && dbSettings?.meta_instagram_account_id) {
+      const metaResult = await metaInstagramStoryPost(
+        dbSettings.meta_access_token,
+        dbSettings.meta_instagram_account_id,
+        imageUrl
+      );
+
+      if (metaResult.success) {
+        await setNewsPublished(newsItemId);
+        return { success: true, postId: metaResult.postId };
+      }
+      console.warn(`[news-publish] Meta story falhou (${metaResult.error}), tentando Zernio...`);
+    }
+
+    // Zernio fallback
+    const accountId = (dbSettings?.zernio_instagram_id) || nicheConfig.zernioAccountIds.instagram || undefined;
     const result = await zernioStoryPost('instagram', imageUrl, accountId);
 
     if (result.success) {
@@ -46,7 +67,6 @@ export async function publishNewsStory(newsItemId: string): Promise<PublishNewsR
   }
 }
 
-/** Publica todas as notícias do dia com story art pronto para um nicho específico. */
 export async function publishTodayNews(niche?: string): Promise<{ published: number; failed: number }> {
   const items = await findTodayStoryComposed(niche);
   let published = 0;
@@ -58,7 +78,6 @@ export async function publishTodayNews(niche?: string): Promise<{ published: num
       published++;
     } else {
       failed++;
-      // Se atingiu limite diário do Zernio, para imediatamente
       if (result.error?.toLowerCase().includes('daily limit')) break;
     }
   }
