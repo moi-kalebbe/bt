@@ -90,9 +90,11 @@ function FilterPanel({
   );
 
   const clearFilters = useCallback(() => {
-    router.push('/admin');
+    const niche = searchParams.get('niche');
+    const qs = niche && niche !== 'beach-tennis' ? `?niche=${niche}` : '';
+    router.push(`/admin${qs}`);
     onClose?.();
-  }, [router, onClose]);
+  }, [router, searchParams, onClose]);
 
   const hasFilters = currentSource || currentStatus || currentAuthor || currentSlot;
 

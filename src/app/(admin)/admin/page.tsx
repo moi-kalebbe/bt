@@ -51,6 +51,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
             </Button>
           </form>
           <form action="/api/ingest" method="POST">
+            <input type="hidden" name="niche" value={niche} />
             <Button type="submit" variant="secondary" size="sm">
               <Download className="mr-2 h-4 w-4" />
               <span className="hidden sm:inline">Ingerir</span>
@@ -58,6 +59,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
             </Button>
           </form>
           <form action="/api/schedule" method="POST">
+            <input type="hidden" name="niche" value={niche} />
             <Button type="submit" variant="outline" size="sm">
               <Play className="mr-2 h-4 w-4" />
               Agendar

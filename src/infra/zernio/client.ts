@@ -21,12 +21,13 @@ export interface ZernioResult {
 export async function zernioPost(
   platform: ZernioPlatform,
   mediaUrl: string,
-  caption: string
+  caption: string,
+  overrideAccountId?: string
 ): Promise<ZernioResult> {
   const apiKey = process.env.ZERNIO_API_KEY;
   if (!apiKey) return { success: false, error: 'ZERNIO_API_KEY not configured' };
 
-  const accountId = ACCOUNT_IDS[platform];
+  const accountId = overrideAccountId ?? ACCOUNT_IDS[platform];
   if (!accountId) return { success: false, error: `Platform ${platform} not connected in Zernio` };
 
   const res = await fetch(`${ZERNIO_BASE}/posts`, {
@@ -64,12 +65,13 @@ export async function zernioPost(
 export async function zernioImagePost(
   platform: ZernioPlatform,
   mediaUrl: string,
-  caption: string
+  caption: string,
+  overrideAccountId?: string
 ): Promise<ZernioResult> {
   const apiKey = process.env.ZERNIO_API_KEY;
   if (!apiKey) return { success: false, error: 'ZERNIO_API_KEY not configured' };
 
-  const accountId = ACCOUNT_IDS[platform];
+  const accountId = overrideAccountId ?? ACCOUNT_IDS[platform];
   if (!accountId) return { success: false, error: `Platform ${platform} not connected in Zernio` };
 
   const res = await fetch(`${ZERNIO_BASE}/posts`, {
@@ -106,12 +108,13 @@ export async function zernioImagePost(
 /** Publica uma imagem como Instagram Story (9:16, desaparece em 24h). */
 export async function zernioStoryPost(
   platform: ZernioPlatform,
-  mediaUrl: string
+  mediaUrl: string,
+  overrideAccountId?: string
 ): Promise<ZernioResult> {
   const apiKey = process.env.ZERNIO_API_KEY;
   if (!apiKey) return { success: false, error: 'ZERNIO_API_KEY not configured' };
 
-  const accountId = ACCOUNT_IDS[platform];
+  const accountId = overrideAccountId ?? ACCOUNT_IDS[platform];
   if (!accountId) return { success: false, error: `Platform ${platform} not connected in Zernio` };
 
   const res = await fetch(`${ZERNIO_BASE}/posts`, {

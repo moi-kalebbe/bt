@@ -17,6 +17,8 @@ export interface NicheConfig {
   newsSources: NicheRssSource[];
   newsGroqSystemPrompt: string;
   newsGroqUserPrompt: (title: string, summary: string, content: string) => string;
+  /** IDs de conta Zernio para publicação neste nicho */
+  zernioAccountIds: { instagram: string; tiktok: string; youtube: string; facebook: string };
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -63,6 +65,12 @@ const beachTennisConfig: NicheConfig = {
       needsResolution: true,
     },
   ],
+  zernioAccountIds: {
+    instagram: '69dd27347dea335c2be735df',
+    tiktok:    '69dd28a87dea335c2be7480e',
+    youtube:   '69dd28f97dea335c2be74bbb',
+    facebook:  '',
+  },
   newsGroqSystemPrompt:
     'Você é um classificador de notícias esportivas. Responda apenas com JSON válido, sem markdown.',
   newsGroqUserPrompt: (title, summary, content) => `Analise este artigo de notícia e responda com JSON puro (sem markdown):
@@ -172,6 +180,12 @@ const aiTechConfig: NicheConfig = {
       needsResolution: true,
     },
   ],
+  zernioAccountIds: {
+    instagram: process.env.ZERNIO_INSTAGRAM_ID_AI ?? '',
+    tiktok:    process.env.ZERNIO_TIKTOK_ID_AI    ?? '',
+    youtube:   process.env.ZERNIO_YOUTUBE_ID_AI   ?? '',
+    facebook:  '',
+  },
   newsGroqSystemPrompt:
     'Você é um classificador de artigos técnicos sobre Inteligência Artificial. Responda apenas com JSON válido, sem markdown.',
   newsGroqUserPrompt: (title, summary, content) => `Analise este artigo e responda com JSON puro (sem markdown):

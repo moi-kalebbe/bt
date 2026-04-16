@@ -3,6 +3,7 @@ import { updatePublishJobStatus } from '@/infra/supabase/repositories/publish-jo
 import { supabase } from '@/infra/supabase/client';
 import { zernioPost, type ZernioPlatform, type ZernioResult } from '@/infra/zernio/client';
 import { generateCaption } from '@/services/caption.service';
+import { getNicheConfig } from '@/config/niche-configs';
 import type { PublishTarget } from '@/types/domain';
 
 export interface PublishResult {
@@ -53,7 +54,10 @@ export async function publishVideo(
     const videoUrl = getVideoPublicUrl(content.processed_video_r2_key);
     const caption = await generateCaption(content);
 
-    const apiResult = await zernioPost(platform, videoUrl, caption);
+    const niche = content.niche ?? 'beach-tennis';
+    const nicheConfig = getNicheConfig(niche);
+    const accountId = nicheConfig.zernioAccountIds[platform] || undefined;
+    const apiResult = await zernioPost(platform, videoUrl, caption, accountId);
 
     if (apiResult.success) {
       await setContentPublished(contentId, platform);

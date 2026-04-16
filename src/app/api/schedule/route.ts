@@ -3,34 +3,32 @@ import { selectAndScheduleVideos } from '@/services/schedule.service';
 
 export async function POST(request: NextRequest) {
   try {
-    const result = await selectAndScheduleVideos();
+    let niche = 'beach-tennis';
+    try {
+      const body = await request.json();
+      if (body?.niche) niche = body.niche;
+    } catch {
+      // form POST (application/x-www-form-urlencoded)
+      const text = await request.text().catch(() => '');
+      const params = new URLSearchParams(text);
+      niche = params.get('niche') ?? 'beach-tennis';
+    }
 
-    return NextResponse.json({
-      success: true,
-      ...result,
-    });
+    const result = await selectAndScheduleVideos(niche);
+    return NextResponse.json({ success: true, niche, ...result });
   } catch (error) {
     console.error('Error running scheduler:', error);
-    return NextResponse.json(
-      { error: 'Failed to run scheduler' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to run scheduler' }, { status: 500 });
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const result = await selectAndScheduleVideos();
-
-    return NextResponse.json({
-      success: true,
-      ...result,
-    });
+    const niche = request.nextUrl.searchParams.get('niche') ?? 'beach-tennis';
+    const result = await selectAndScheduleVideos(niche);
+    return NextResponse.json({ success: true, niche, ...result });
   } catch (error) {
     console.error('Error running scheduler:', error);
-    return NextResponse.json(
-      { error: 'Failed to run scheduler' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to run scheduler' }, { status: 500 });
   }
 }

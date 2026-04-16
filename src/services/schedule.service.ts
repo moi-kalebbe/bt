@@ -20,14 +20,16 @@ export interface ScheduleResult {
   skipped: number;
 }
 
-export async function selectAndScheduleVideos(): Promise<ScheduleResult> {
+export async function selectAndScheduleVideos(niche = 'beach-tennis'): Promise<ScheduleResult> {
   const result: ScheduleResult = { scheduled: [], skipped: 0 };
 
-  // Authors already used in the last 7 days — avoid scheduling them again
+  // Authors already used in the last 7 days for this niche — avoid scheduling them again
   const recentCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const { data: recentItems } = await supabase
     .from('content_items')
     .select('author_username')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .eq('niche', niche as any)
     .not('selected_for_slot', 'is', null)
     .gte('updated_at', recentCutoff);
 
@@ -41,6 +43,8 @@ export async function selectAndScheduleVideos(): Promise<ScheduleResult> {
     .from('content_items')
     .select('*')
     .eq('status', 'ready')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .eq('niche', niche as any)
     .is('selected_for_slot', null)
     .not('processed_video_r2_key', 'is', null)
     .order('created_at', { ascending: false })

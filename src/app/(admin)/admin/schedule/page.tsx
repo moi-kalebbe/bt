@@ -5,14 +5,24 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Play, Sun, Moon, Sunset, Coffee } from 'lucide-react';
+import { NICHES } from '@/config/niches';
 import { normalizeStatusLabel, getSlotLabel } from '@/domain/content';
 import type { Slot } from '@/types/domain';
 
 export const dynamic = 'force-dynamic';
 
-export default async function SchedulePage() {
+interface PageProps {
+  searchParams: Promise<{ niche?: string }>;
+}
+
+export default async function SchedulePage({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const niche = params.niche ?? 'beach-tennis';
+  const nicheLabel = NICHES.find((n) => n.id === niche)?.label ?? niche;
+
   const { items: scheduledVideos } = await findContents({
     status: 'scheduled',
+    niche,
     limit: 20,
     offset: 0,
   });
@@ -27,10 +37,11 @@ export default async function SchedulePage() {
       {/* Toolbar */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold">Agendamento</h1>
+          <h1 className="text-xl font-bold">Agendamento — {nicheLabel}</h1>
           <p className="text-sm text-muted-foreground">Vídeos selecionados para publicação</p>
         </div>
         <form action="/api/schedule" method="POST">
+          <input type="hidden" name="niche" value={niche} />
           <Button type="submit">
             <Play className="mr-2 h-4 w-4" />
             Rodar Scheduler

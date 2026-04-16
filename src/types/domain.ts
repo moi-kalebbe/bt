@@ -33,6 +33,7 @@ export interface NormalizedContent {
 
 export interface ContentItem {
   id: string;
+  niche: string;
   source: ContentSource;
   source_video_id: string;
   source_url: string;
@@ -124,6 +125,7 @@ export type NewsStatus =
 
 export interface NewsItem {
   id: string;
+  niche: string;
   title: string;
   summary: string | null;
   full_content: string | null;

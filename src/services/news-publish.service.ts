@@ -1,6 +1,7 @@
 import { findNewsItemById, findTodayStoryComposed, setNewsPublished, setNewsStatus } from '@/infra/supabase/repositories/news.repository';
 import { getPublicUrl } from '@/infra/r2/client';
 import { zernioStoryPost } from '@/infra/zernio/client';
+import { getNicheConfig } from '@/config/niche-configs';
 
 export interface PublishNewsResult {
   success: boolean;
@@ -26,7 +27,10 @@ export async function publishNewsStory(newsItemId: string): Promise<PublishNewsR
 
     const imageUrl = getPublicUrl(item.story_art_r2_key);
 
-    const result = await zernioStoryPost('instagram', imageUrl);
+    const niche = item.niche ?? 'beach-tennis';
+    const nicheConfig = getNicheConfig(niche);
+    const accountId = nicheConfig.zernioAccountIds.instagram || undefined;
+    const result = await zernioStoryPost('instagram', imageUrl, accountId);
 
     if (result.success) {
       await setNewsPublished(newsItemId);
