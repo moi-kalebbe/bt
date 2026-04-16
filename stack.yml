@@ -21,16 +21,31 @@ services:
       R2_BUCKET_NAME: ${R2_BUCKET_NAME:-scraper}
       NEXT_PUBLIC_R2_PUBLIC_URL: ${NEXT_PUBLIC_R2_PUBLIC_URL}
 
-      # Apify
+      # Apify — nicho Beach Tennis
       APIFY_TOKEN: ${APIFY_TOKEN}
+      # Apify — nicho IA & Tech (conta/plano separado)
+      APIFY_TOKEN_AI: ${APIFY_TOKEN_AI}
+      # Atores Apify (compartilhados entre nichos — só o token muda)
       APIFY_TIKTOK_ACTOR_IDS: ${APIFY_TIKTOK_ACTOR_IDS}
       APIFY_YOUTUBE_ACTOR_IDS: ${APIFY_YOUTUBE_ACTOR_IDS}
 
-      # Zernio
+      # Zernio — API key global
       ZERNIO_API_KEY: ${ZERNIO_API_KEY}
+      # Zernio — IDs de conta por nicho: IA & Tech
+      ZERNIO_INSTAGRAM_ID_AI: ${ZERNIO_INSTAGRAM_ID_AI:-}
+      ZERNIO_TIKTOK_ID_AI: ${ZERNIO_TIKTOK_ID_AI:-}
+      ZERNIO_YOUTUBE_ID_AI: ${ZERNIO_YOUTUBE_ID_AI:-}
 
-      # Groq (geração de legendas)
+      # Groq — geração de legendas e classificação
       GROQ_API_KEY: ${GROQ_API_KEY}
+
+      # Caption — handles das contas por nicho
+      # Beach Tennis: hardcoded em niche-configs.ts (@dicas.beachtennis)
+      CAPTION_ACCOUNT_HANDLE_AI: ${CAPTION_ACCOUNT_HANDLE_AI:-@ia.automacao}
+      CAPTION_ACCOUNT_TAG_AI: ${CAPTION_ACCOUNT_TAG_AI:-#iaautomacao}
+
+      # Cron secret — valida chamadas do scrapper-cron
+      CRON_SECRET: ${CRON_SECRET:-}
 
       # FFmpeg Worker — aponta para o serviço interno
       FFMPEG_WORKER_URL: http://scrapper-worker:3001
