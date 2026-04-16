@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { parseBody } from '@/lib/request';
 import { findContents } from '@/infra/supabase/repositories/content.repository';
 import { ingestContent } from '@/services/ingest.service';
 
@@ -6,15 +7,7 @@ export const maxDuration = 300; // 5 min para Vercel Pro / Hobby ignora
 
 export async function POST(request: NextRequest) {
   try {
-    let niche = 'beach-tennis';
-    try {
-      const body = await request.json();
-      if (body?.niche) niche = body.niche;
-    } catch {
-      const text = await request.text().catch(() => '');
-      const params = new URLSearchParams(text);
-      niche = params.get('niche') ?? 'beach-tennis';
-    }
+    const { niche = 'beach-tennis' } = await parseBody(request);
 
     const { items } = await findContents({ status: 'discovered', niche, limit: 20 });
 

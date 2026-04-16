@@ -1,21 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { parseBody } from '@/lib/request';
 import { runScrape } from '@/services/scrape.service';
 import { startIngestBackground } from '@/services/ingest-bg.service';
 
 export async function POST(request: NextRequest) {
   try {
-    let source = 'both';
-    let niche = 'beach-tennis';
-    try {
-      const body = await request.json();
-      if (body?.source) source = body.source;
-      if (body?.niche) niche = body.niche;
-    } catch {
-      const text = await request.text().catch(() => '');
-      const params = new URLSearchParams(text);
-      source = params.get('source') ?? 'both';
-      niche = params.get('niche') ?? 'beach-tennis';
-    }
+    const _body = await parseBody(request);
+    const source = _body.source ?? 'both';
+    const niche = _body.niche ?? 'beach-tennis';
 
     if (!['tiktok', 'youtube', 'both'].includes(source)) {
       return NextResponse.json(

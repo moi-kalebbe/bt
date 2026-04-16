@@ -1,18 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { parseBody } from '@/lib/request';
 import { selectAndScheduleVideos } from '@/services/schedule.service';
 
 export async function POST(request: NextRequest) {
   try {
-    let niche = 'beach-tennis';
-    try {
-      const body = await request.json();
-      if (body?.niche) niche = body.niche;
-    } catch {
-      // form POST (application/x-www-form-urlencoded)
-      const text = await request.text().catch(() => '');
-      const params = new URLSearchParams(text);
-      niche = params.get('niche') ?? 'beach-tennis';
-    }
+    const { niche = 'beach-tennis' } = await parseBody(request);
 
     const result = await selectAndScheduleVideos(niche);
     return NextResponse.json({ success: true, niche, ...result });

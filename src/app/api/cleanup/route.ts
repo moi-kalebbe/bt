@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { parseBody } from '@/lib/request';
 import { supabase } from '@/infra/supabase/client';
 import { deleteFromR2 } from '@/infra/r2/client';
 import { findContents } from '@/infra/supabase/repositories/content.repository';
@@ -150,15 +151,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Lê niche do body (JSON ou form POST)
-  let niche = 'beach-tennis';
-  try {
-    const body = await request.json();
-    if (body?.niche) niche = body.niche;
-  } catch {
-    const text = await request.text().catch(() => '');
-    niche = new URLSearchParams(text).get('niche') ?? 'beach-tennis';
-  }
+  const { niche = 'beach-tennis' } = await parseBody(request);
 
   // Busca itens do nicho ainda não publicados — usa findContents que já suporta niche
   const { items: allItems } = await findContents({ niche, limit: 500 }).catch(() => ({ items: [], total: 0 }));
