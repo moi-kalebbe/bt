@@ -1,161 +1,154 @@
 import { Suspense } from 'react';
 import { findContents } from '@/infra/supabase/repositories/content.repository';
-import { selectAndScheduleVideos } from '@/services/schedule.service';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Play, Sun, Moon } from 'lucide-react';
-import { normalizeStatusLabel, getSlotEmoji, getSlotLabel } from '@/domain/content';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Play, Sun, Moon, Sunset, Coffee } from 'lucide-react';
+import { normalizeStatusLabel, getSlotLabel } from '@/domain/content';
 import type { Slot } from '@/types/domain';
 
 export const dynamic = 'force-dynamic';
 
 export default async function SchedulePage() {
-  const { items: morningVideos } = await findContents({
+  const { items: scheduledVideos } = await findContents({
     status: 'scheduled',
-    limit: 10,
+    limit: 20,
     offset: 0,
   });
 
-  const morningContent = morningVideos.find((v) => v.selected_for_slot === 'morning');
-  const nightContent = morningVideos.find((v) => v.selected_for_slot === 'night');
+  const morningContent  = scheduledVideos.find((v) => v.selected_for_slot === 'morning');
+  const middayContent   = scheduledVideos.find((v) => v.selected_for_slot === 'midday');
+  const eveningContent  = scheduledVideos.find((v) => v.selected_for_slot === 'evening');
+  const nightContent    = scheduledVideos.find((v) => v.selected_for_slot === 'night');
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b bg-card">
-        <div className="container mx-auto flex h-16 items-center justify-between px-4">
-          <div>
-            <h1 className="text-xl font-bold">Beach Tennis Pipeline</h1>
-            <p className="text-sm text-muted-foreground">
-              Agendamento de conteúdo
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <form action="/api/schedule" method="POST">
-              <Button type="submit">
-                <Play className="mr-2 h-4 w-4" />
-                Rodar Scheduler
-              </Button>
-            </form>
-          </div>
+    <div className="p-4 md:p-6 space-y-6">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold">Agendamento</h1>
+          <p className="text-sm text-muted-foreground">Vídeos selecionados para publicação</p>
         </div>
-      </header>
+        <form action="/api/schedule" method="POST">
+          <Button type="submit">
+            <Play className="mr-2 h-4 w-4" />
+            Rodar Scheduler
+          </Button>
+        </form>
+      </div>
 
-      <main className="container mx-auto px-4 py-6">
-        <div className="grid gap-6 md:grid-cols-2">
-          <SlotCard
-            slot="morning"
-            icon={<Sun className="h-8 w-8 text-yellow-500" />}
-            title="Vídeo da Manhã"
-            description="Será publicado às 8h"
-            content={morningContent}
-          />
+      {/* Slot cards */}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <SlotCard
+          slot="morning"
+          icon={<Coffee className="h-6 w-6 text-yellow-500" />}
+          title="Manhã"
+          time="08:00"
+          content={morningContent}
+        />
+        <SlotCard
+          slot="midday"
+          icon={<Sun className="h-6 w-6 text-orange-500" />}
+          title="Meio-dia"
+          time="11:30"
+          content={middayContent}
+        />
+        <SlotCard
+          slot="evening"
+          icon={<Sunset className="h-6 w-6 text-rose-500" />}
+          title="Tarde"
+          time="18:00"
+          content={eveningContent}
+        />
+        <SlotCard
+          slot="night"
+          icon={<Moon className="h-6 w-6 text-blue-500" />}
+          title="Noite"
+          time="21:30"
+          content={nightContent}
+        />
+      </div>
 
-          <SlotCard
-            slot="night"
-            icon={<Moon className="h-8 w-8 text-blue-500" />}
-            title="Vídeo da Noite"
-            description="Será publicado às 18h"
-            content={nightContent}
-          />
-        </div>
-
-        <div className="mt-8">
-          <h2 className="mb-4 text-lg font-semibold">Vídeos Agendados</h2>
-          <div className="rounded-lg border bg-card">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b bg-muted/50">
-                  <th className="px-4 py-3 text-left text-sm font-medium">Slot</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium">Título</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium">Autor</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium">Status</th>
+      {/* Table */}
+      <div>
+        <h2 className="mb-3 text-base font-semibold">Todos os agendados</h2>
+        <div className="rounded-lg border bg-card overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-muted/50">
+                <th className="px-4 py-3 text-left font-medium">Slot</th>
+                <th className="px-4 py-3 text-left font-medium">Título</th>
+                <th className="px-4 py-3 text-left font-medium hidden sm:table-cell">Autor</th>
+                <th className="px-4 py-3 text-left font-medium">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {scheduledVideos.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">
+                    Nenhum vídeo agendado. Clique em &ldquo;Rodar Scheduler&rdquo; para selecionar.
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {morningContent && (
-                  <tr className="border-b">
+              ) : (
+                scheduledVideos.map((video) => (
+                  <tr key={video.id} className="border-b last:border-0">
                     <td className="px-4 py-3">
-                      <Badge variant="secondary">
-                        <Sun className="mr-1 h-3 w-3" />
-                        Manhã
-                      </Badge>
+                      {video.selected_for_slot && (
+                        <Badge variant="secondary">
+                          {getSlotLabel(video.selected_for_slot as Slot)}
+                        </Badge>
+                      )}
                     </td>
-                    <td className="px-4 py-3 text-sm">{morningContent.title ?? '-'}</td>
-                    <td className="px-4 py-3 text-sm">@{morningContent.author_username}</td>
+                    <td className="px-4 py-3 max-w-[200px] truncate">{video.title ?? '-'}</td>
+                    <td className="px-4 py-3 hidden sm:table-cell text-muted-foreground">
+                      @{video.author_username}
+                    </td>
                     <td className="px-4 py-3">
-                      <Badge>{normalizeStatusLabel(morningContent.status as import('@/types/domain').ContentStatus)}</Badge>
+                      <Badge>{normalizeStatusLabel(video.status as import('@/types/domain').ContentStatus)}</Badge>
                     </td>
                   </tr>
-                )}
-                {nightContent && (
-                  <tr className="border-b">
-                    <td className="px-4 py-3">
-                      <Badge variant="secondary">
-                        <Moon className="mr-1 h-3 w-3" />
-                        Noite
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 text-sm">{nightContent.title ?? '-'}</td>
-                    <td className="px-4 py-3 text-sm">@{nightContent.author_username}</td>
-                    <td className="px-4 py-3">
-                      <Badge>{normalizeStatusLabel(nightContent.status as import('@/types/domain').ContentStatus)}</Badge>
-                    </td>
-                  </tr>
-                )}
-                {!morningContent && !nightContent && (
-                  <tr>
-                    <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">
-                      Nenhum vídeo agendado. Clique em &ldquo;Rodar Scheduler&rdquo; para selecionar.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
-      </main>
+      </div>
     </div>
   );
 }
 
 function SlotCard({
-  slot,
   icon,
   title,
-  description,
+  time,
   content,
 }: {
   slot: Slot;
   icon: React.ReactNode;
   title: string;
-  description: string;
+  time: string;
   content: import('@/types/domain').ContentItem | undefined;
 }) {
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center gap-4">
-        {icon}
-        <div>
-          <CardTitle>{title}</CardTitle>
-          <p className="text-sm text-muted-foreground">{description}</p>
+    <Card className={content ? 'border-primary/40' : ''}>
+      <CardHeader className="pb-2">
+        <div className="flex items-center gap-2">
+          {icon}
+          <div>
+            <CardTitle className="text-sm font-semibold">{title}</CardTitle>
+            <p className="text-xs text-muted-foreground">{time}</p>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
         {content ? (
-          <div className="space-y-2">
-            <p className="font-medium">{content.title ?? 'Sem título'}</p>
-            <p className="text-sm text-muted-foreground">
-              @{content.author_username}
-            </p>
-            {content.hashtags && content.hashtags.length > 0 && (
-              <p className="text-xs text-muted-foreground">
-                #{content.hashtags.slice(0, 5).join(' #')}
-              </p>
-            )}
+          <div className="space-y-1">
+            <p className="text-sm font-medium line-clamp-2">{content.title ?? 'Sem título'}</p>
+            <p className="text-xs text-muted-foreground">@{content.author_username}</p>
           </div>
         ) : (
-          <p className="text-muted-foreground">Nenhum vídeo selecionado</p>
+          <p className="text-sm text-muted-foreground">Vazio</p>
         )}
       </CardContent>
     </Card>
