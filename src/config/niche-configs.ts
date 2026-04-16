@@ -70,9 +70,8 @@ const beachTennisConfig: NicheConfig = {
     youtube: ['btrobson', 'raphael.bt'],
   },
   newsSources: [
-    { name: 'Tênis Brasil', url: 'https://tenisbrasil.com.br/feed/' },
-    { name: 'CBT', url: 'https://cbt.org.br/feed/' },
-    { name: 'BT Brasil', url: 'https://btbrasil.com.br/feed/' },
+    { name: 'Tênis Brasil', url: 'https://tenisbrasil.com.br/feed/', filterKeyword: 'beach tennis' },
+    { name: 'BT Brasil', url: 'https://btbrasil.com.br/feed/', filterKeyword: 'beach tennis' },
     { name: 'Beach Tennis News', url: 'https://beachtennis.news/feed/' },
     { name: 'Lance!', url: 'https://www.lance.com.br/feed/', filterKeyword: 'beach tennis' },
     { name: 'ESPN BR', url: 'https://www.espn.com.br/rss/espn.xml', filterKeyword: 'beach tennis' },

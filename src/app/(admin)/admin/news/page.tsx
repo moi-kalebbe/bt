@@ -3,10 +3,11 @@ import { findNewsItems } from '@/infra/supabase/repositories/news.repository';
 import { NewsList } from './news-list';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { RefreshCw, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { NICHES } from '@/config/niches';
 import type { NewsStatus } from '@/types/domain';
 import { ClearNewsButton } from './clear-news-button';
+import { FetchNewsButton } from './fetch-news-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -83,13 +84,7 @@ export default async function NewsPage({ searchParams }: PageProps) {
             </Button>
           </form>
 
-          <form action="/api/news/fetch" method="POST">
-            <input type="hidden" name="niche" value={niche} />
-            <Button type="submit" variant="outline" size="sm">
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Buscar Notícias
-            </Button>
-          </form>
+          <FetchNewsButton niche={niche} />
 
           <ClearNewsButton niche={niche} />
         </div>

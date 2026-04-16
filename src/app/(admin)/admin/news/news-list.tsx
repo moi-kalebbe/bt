@@ -112,17 +112,10 @@ function NewsRow({ item }: { item: NewsItem }) {
     }
   };
 
-  const date = item.published_at
-    ? new Date(item.published_at).toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: '2-digit',
-      })
-    : new Date(item.created_at).toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: '2-digit',
-      });
+  const raw = item.published_at ?? item.created_at;
+  const d = new Date(raw);
+  const date = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+  const time = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
   const canCompose =
     (item.status === 'curated' || item.status === 'scraped' || item.status === 'failed') &&
@@ -156,6 +149,7 @@ function NewsRow({ item }: { item: NewsItem }) {
 
       <td className="px-4 py-3 hidden md:table-cell">
         <span className="text-xs text-muted-foreground">{date}</span>
+        <span className="text-xs text-muted-foreground/60 ml-1">{time}</span>
       </td>
 
       <td className="px-4 py-3">

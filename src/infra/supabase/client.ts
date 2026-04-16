@@ -346,6 +346,47 @@ export type Database = {
           updated_at?: string;
         };
       };
+      fetch_jobs: {
+        Row: {
+          id: string;
+          niche: string;
+          status: string;
+          discovered: number;
+          duplicates: number;
+          scraped: number;
+          failed: number;
+          errors: string[];
+          started_at: string;
+          finished_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          niche: string;
+          status?: string;
+          discovered?: number;
+          duplicates?: number;
+          scraped?: number;
+          failed?: number;
+          errors?: string[];
+          started_at?: string;
+          finished_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          niche?: string;
+          status?: string;
+          discovered?: number;
+          duplicates?: number;
+          scraped?: number;
+          failed?: number;
+          errors?: string[];
+          started_at?: string;
+          finished_at?: string | null;
+          created_at?: string;
+        };
+      };
       news_items: {
         Row: {
           id: string;
