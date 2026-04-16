@@ -1,6 +1,6 @@
 import { findNewsItemById, findTodayStoryComposed, setNewsPublished, setNewsStatus } from '@/infra/supabase/repositories/news.repository';
 import { getPublicUrl } from '@/infra/r2/client';
-import { zernioImagePost } from '@/infra/zernio/client';
+import { zernioStoryPost } from '@/infra/zernio/client';
 
 export interface PublishNewsResult {
   success: boolean;
@@ -25,9 +25,8 @@ export async function publishNewsStory(newsItemId: string): Promise<PublishNewsR
     }
 
     const imageUrl = getPublicUrl(item.story_art_r2_key);
-    const caption = buildCaption(item.title);
 
-    const result = await zernioImagePost('instagram', imageUrl, caption);
+    const result = await zernioStoryPost('instagram', imageUrl);
 
     if (result.success) {
       await setNewsPublished(newsItemId);

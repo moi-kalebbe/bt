@@ -16,8 +16,8 @@ export interface ComposeResult {
 }
 
 const CANVAS_W = 1080;
-const CANVAS_H = 1350; // 4:5 portrait — máximo permitido no Instagram feed
-const COVER_H = 810;   // hero image height (~60% of canvas)
+const CANVAS_H = 1920; // 9:16 — formato Story do Instagram
+const COVER_H = 1150;  // hero image height (~60% of canvas)
 const ACCENT = '#FF6B00'; // sports orange accent
 
 export async function composeStoryArt(newsItemId: string): Promise<ComposeResult> {
@@ -49,7 +49,7 @@ export async function composeStoryArt(newsItemId: string): Promise<ComposeResult
     const coverLeft = 0;
 
     // Layer 3 — gradient overlay (starts high, strong fade to black)
-    const gradientTop = 380;
+    const gradientTop = 550;
     const gradientHeight = CANVAS_H - gradientTop;
     const gradientBuffer = await sharp(
       Buffer.from(buildGradientSvg(CANVAS_W, gradientHeight))

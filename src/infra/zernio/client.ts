@@ -102,3 +102,49 @@ export async function zernioImagePost(
 
   return { success: true, postId: data.post?._id };
 }
+
+/** Publica uma imagem como Instagram Story (9:16, desaparece em 24h). */
+export async function zernioStoryPost(
+  platform: ZernioPlatform,
+  mediaUrl: string
+): Promise<ZernioResult> {
+  const apiKey = process.env.ZERNIO_API_KEY;
+  if (!apiKey) return { success: false, error: 'ZERNIO_API_KEY not configured' };
+
+  const accountId = ACCOUNT_IDS[platform];
+  if (!accountId) return { success: false, error: `Platform ${platform} not connected in Zernio` };
+
+  const res = await fetch(`${ZERNIO_BASE}/posts`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      platforms: [
+        {
+          platform,
+          accountId,
+          platformSpecificData: { contentType: 'story' },
+        },
+      ],
+      mediaItems: [{ url: mediaUrl, type: 'image' }],
+      publishNow: true,
+    }),
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    const errorMsg = data.error ?? data.message ?? `HTTP ${res.status}`;
+    const dailyLimitReached = /daily limit/i.test(String(errorMsg));
+    return { success: false, error: errorMsg, dailyLimitReached };
+  }
+
+  const postStatus = data.post?.status;
+  if (postStatus === 'failed') {
+    return { success: false, error: data.message ?? 'Publishing failed' };
+  }
+
+  return { success: true, postId: data.post?._id };
+}
