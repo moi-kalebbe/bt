@@ -13,13 +13,11 @@ import { revalidatePath } from 'next/cache';
 export const dynamic = 'force-dynamic';
 
 const ENV_CHECKS = [
-  { label: 'Supabase URL',    key: 'NEXT_PUBLIC_SUPABASE_URL' },
-  { label: 'R2 Bucket',       key: 'R2_BUCKET_NAME' },
-  { label: 'Apify Token (BT)', key: 'APIFY_TOKEN' },
-  { label: 'Apify Token (IA)', key: 'APIFY_TOKEN_AI' },
-  { label: 'Zernio API Key',  key: 'ZERNIO_API_KEY' },
-  { label: 'Groq API Key',    key: 'GROQ_API_KEY' },
-  { label: 'Cron Secret',     key: 'CRON_SECRET' },
+  { label: 'Supabase URL',   key: 'NEXT_PUBLIC_SUPABASE_URL' },
+  { label: 'R2 Bucket',      key: 'R2_BUCKET_NAME' },
+  { label: 'Zernio API Key', key: 'ZERNIO_API_KEY' },
+  { label: 'Groq API Key',   key: 'GROQ_API_KEY' },
+  { label: 'Cron Secret',    key: 'CRON_SECRET' },
 ];
 
 export default async function SettingsPage() {
@@ -59,6 +57,7 @@ export default async function SettingsPage() {
                     action={async (formData: FormData) => {
                       'use server';
                       const nicheId = formData.get('niche_id') as string;
+                      const apifyTokenRaw = (formData.get('apify_token') as string).trim();
                       await upsertNicheSettings(nicheId, {
                         zernio_instagram_id: (formData.get('zernio_instagram_id') as string) || null,
                         zernio_tiktok_id:    (formData.get('zernio_tiktok_id')    as string) || null,
@@ -66,12 +65,30 @@ export default async function SettingsPage() {
                         zernio_facebook_id:  (formData.get('zernio_facebook_id')  as string) || null,
                         caption_account_handle: (formData.get('caption_account_handle') as string) || null,
                         caption_account_tag:    (formData.get('caption_account_tag')    as string) || null,
+                        apify_token: apifyTokenRaw || null,
                       });
                       revalidatePath('/admin/settings');
                     }}
                     className="space-y-3"
                   >
                     <input type="hidden" name="niche_id" value={niche.id} />
+
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Apify</p>
+                      <div className="grid grid-cols-[80px_1fr] items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Token</span>
+                        <Input
+                          name="apify_token"
+                          type="password"
+                          defaultValue={s?.apify_token ?? ''}
+                          placeholder={s?.apify_token ? '••••••••' : 'apify_api_...'}
+                          className="h-8 text-xs font-mono"
+                          autoComplete="new-password"
+                        />
+                      </div>
+                    </div>
+
+                    <Separator />
 
                     <div className="space-y-2">
                       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Zernio</p>

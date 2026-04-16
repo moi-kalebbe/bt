@@ -63,7 +63,7 @@ async function scrapeAndIngest(source: ContentSource, niche: string): Promise<Sc
 
   try {
     const config = getNicheConfig(niche);
-    const apifyToken = getApifyToken(niche);
+    const apifyToken = await getApifyToken(niche);
     let normalizedVideos: NormalizedContent[] = [];
 
     if (source === 'tiktok') {

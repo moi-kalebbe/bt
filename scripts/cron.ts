@@ -106,6 +106,10 @@ async function processQueue() {
   await call('process-queue', '/api/process-queue?limit=1');
 }
 
+async function musicPipeline(niche: string) {
+  await call(`music-sync:${niche}`, '/api/music/sync', { niche });
+}
+
 // ─── Scheduler helpers ────────────────────────────────────────────────────────
 
 function msUntilBRT(hour: number, minute: number): number {
@@ -146,6 +150,9 @@ scheduleDaily(21, 30, () => runForAllNiches(publishPipeline),  'publish-4-all');
 
 scheduleDaily(8,  0,  () => runForAllNiches(newsPipeline),     'news-8h-all');
 scheduleDaily(20, 0,  () => runForAllNiches(newsPipeline),     'news-20h-all');
+
+// Músicas virais por nicho — 1x por dia às 02:00 BRT
+scheduleDaily(2,  0,  () => runForAllNiches(musicPipeline),   'music-sync-all');
 
 scheduleInterval(30 * MIN, ingest,       'ingest-all');
 scheduleInterval(5  * MIN, processQueue, 'process-queue');

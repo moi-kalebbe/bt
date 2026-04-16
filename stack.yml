@@ -21,30 +21,17 @@ services:
       R2_BUCKET_NAME: ${R2_BUCKET_NAME:-scraper}
       NEXT_PUBLIC_R2_PUBLIC_URL: ${NEXT_PUBLIC_R2_PUBLIC_URL:-https://pub-0eed0550b68f4cc68503c01747ecd16d.r2.dev}
 
-      # Apify — nicho Beach Tennis
-      APIFY_TOKEN: ${APIFY_TOKEN}
-      # Apify — nicho IA & Tech (conta/plano separado)
-      APIFY_TOKEN_AI: ${APIFY_TOKEN_AI}
-      # Atores Apify (compartilhados entre nichos — só o token muda)
+      # Apify — atores compartilhados (tokens por nicho ficam em /admin/settings)
       APIFY_TIKTOK_ACTOR_IDS: ${APIFY_TIKTOK_ACTOR_IDS}
       APIFY_YOUTUBE_ACTOR_IDS: ${APIFY_YOUTUBE_ACTOR_IDS}
 
-      # Zernio — API key global
+      # Zernio — chave global (IDs de conta por nicho ficam em /admin/settings)
       ZERNIO_API_KEY: ${ZERNIO_API_KEY}
-      # Zernio — IDs de conta por nicho: IA & Tech
-      ZERNIO_INSTAGRAM_ID_AI: ${ZERNIO_INSTAGRAM_ID_AI:-}
-      ZERNIO_TIKTOK_ID_AI: ${ZERNIO_TIKTOK_ID_AI:-}
-      ZERNIO_YOUTUBE_ID_AI: ${ZERNIO_YOUTUBE_ID_AI:-}
 
       # Groq — geração de legendas e classificação
       GROQ_API_KEY: ${GROQ_API_KEY}
 
-      # Caption — handles das contas por nicho
-      # Beach Tennis: hardcoded em niche-configs.ts (@dicas.beachtennis)
-      CAPTION_ACCOUNT_HANDLE_AI: ${CAPTION_ACCOUNT_HANDLE_AI:-@ia.automacao}
-      CAPTION_ACCOUNT_TAG_AI: ${CAPTION_ACCOUNT_TAG_AI:-#iaautomacao}
-
-      # Cron secret — valida chamadas do scrapper-cron
+      # Segurança — valida chamadas internas do scrapper-cron
       CRON_SECRET: ${CRON_SECRET:-}
 
       # FFmpeg Worker — aponta para o serviço interno
@@ -77,13 +64,11 @@ services:
     image: ${SCRAPPER_WORKER_IMAGE:-ghcr.io/moi-kalebbe/scrapper-worker:latest}
     environment:
       PORT: 3001
-      # R2 — worker precisa fazer upload
       R2_ACCOUNT_ID: ${R2_ACCOUNT_ID}
       R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
       R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
       R2_BUCKET_NAME: ${R2_BUCKET_NAME:-scraper}
       NEXT_PUBLIC_R2_PUBLIC_URL: ${NEXT_PUBLIC_R2_PUBLIC_URL:-https://pub-0eed0550b68f4cc68503c01747ecd16d.r2.dev}
-      # Callback para o Next.js app (interno) — nome da variável conforme index.ts
       CALLBACK_URL: http://scrapper:3000/api/webhooks/process-complete
     networks:
       - scrapper-network

@@ -244,6 +244,7 @@ export type Database = {
           r2_key: string | null;
           active: boolean;
           gain_db: number;
+          niche: string;
           created_at: string;
         };
         Insert: {
@@ -254,6 +255,7 @@ export type Database = {
           r2_key?: string | null;
           active?: boolean;
           gain_db?: number;
+          niche?: string;
           created_at?: string;
         };
         Update: {
@@ -264,6 +266,7 @@ export type Database = {
           r2_key?: string | null;
           active?: boolean;
           gain_db?: number;
+          niche?: string;
           created_at?: string;
         };
       };
@@ -305,6 +308,7 @@ export type Database = {
           zernio_facebook_id: string | null;
           caption_account_handle: string | null;
           caption_account_tag: string | null;
+          apify_token: string | null;
           updated_at: string;
         };
         Insert: {
@@ -315,6 +319,7 @@ export type Database = {
           zernio_facebook_id?: string | null;
           caption_account_handle?: string | null;
           caption_account_tag?: string | null;
+          apify_token?: string | null;
           updated_at?: string;
         };
         Update: {
@@ -325,6 +330,7 @@ export type Database = {
           zernio_facebook_id?: string | null;
           caption_account_handle?: string | null;
           caption_account_tag?: string | null;
+          apify_token?: string | null;
           updated_at?: string;
         };
       };

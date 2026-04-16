@@ -20,9 +20,11 @@ export interface NicheCaptionConfig {
 
 export interface NicheConfig {
   id: string;
-  /** Nome da variável de ambiente que contém o token Apify para este nicho */
+  /** Nome da variável de ambiente usada como fallback para o token Apify */
   apifyTokenEnv: string;
   tiktokHashtags: string[];
+  /** Hashtags TikTok para scraping de sons virais deste nicho */
+  musicHashtags: string[];
   youtubeQuery: string;
   /** Termos no título do vídeo que indicam conteúdo não-técnico a ser rejeitado */
   videoRejectKeywords: string[];
@@ -46,6 +48,7 @@ export interface NicheConfig {
 const beachTennisConfig: NicheConfig = {
   id: 'beach-tennis',
   apifyTokenEnv: 'APIFY_TOKEN',
+  musicHashtags: ['trendingsong', 'sertanejo', 'pagodao', 'axe', 'funkbrasil'],
   tiktokHashtags: [
     'beachtennis',
     'beachtennisbrasil',
@@ -128,6 +131,7 @@ Regras:
 const aiTechConfig: NicheConfig = {
   id: 'ai-tech',
   apifyTokenEnv: 'APIFY_TOKEN_AI',
+  musicHashtags: ['lofimusic', 'synthwave', 'chillbeats', 'studymusic', 'techno'],
   tiktokHashtags: [
     'vibecoding',
     'llm',
@@ -272,11 +276,14 @@ export function getNicheConfig(nicheId: string): NicheConfig {
   return config;
 }
 
-export function getApifyToken(nicheId: string): string {
+export async function getApifyToken(nicheId: string): Promise<string> {
+  const { getNicheSettings } = await import('../infra/supabase/repositories/niche-settings.repository');
+  const dbSettings = await getNicheSettings(nicheId).catch(() => null);
+  if (dbSettings?.apify_token) return dbSettings.apify_token;
   const config = getNicheConfig(nicheId);
   const token = process.env[config.apifyTokenEnv];
   if (!token) {
-    throw new Error(`Token Apify não configurado: variável ${config.apifyTokenEnv} está vazia`);
+    throw new Error(`Token Apify não configurado para o nicho "${nicheId}". Configure em Configurações > Token Apify ou defina a variável ${config.apifyTokenEnv}.`);
   }
   return token;
 }

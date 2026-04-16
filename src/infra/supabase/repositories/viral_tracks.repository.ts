@@ -6,6 +6,7 @@ export async function createViralTrack(data: {
   artist: string | null;
   sourceUrl: string | null;
   r2Key: string | null;
+  niche?: string;
 }): Promise<ViralTrack> {
   const { data: track, error } = await supabase
     .from('viral_tracks')
@@ -16,6 +17,7 @@ export async function createViralTrack(data: {
       r2_key: data.r2Key,
       active: true,
       gain_db: -24,
+      niche: data.niche ?? 'beach-tennis',
     })
     .select('*')
     .single();

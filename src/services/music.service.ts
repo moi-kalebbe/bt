@@ -1,15 +1,20 @@
 import { scrapeTrendingSounds } from '@/infra/apify/tiktok.scraper';
 import { createViralTrack, findTrackBySourceUrl } from '@/infra/supabase/repositories/viral_tracks.repository';
 import { uploadToR2 } from '@/infra/r2/client';
+import { getNicheConfig, getApifyToken } from '@/config/niche-configs';
 import crypto from 'crypto';
 
-export async function syncViralTracks(limit: number = 50) {
-  const sounds = await scrapeTrendingSounds('trendingsong', limit);
+export async function syncViralTracks(niche = 'beach-tennis', limit: number = 50) {
+  const config = getNicheConfig(niche);
+  const apifyToken = await getApifyToken(niche);
+
+  // Usa a primeira hashtag de música do nicho como seed para o scraper
+  const hashtag = config.musicHashtags[0] ?? 'trendingsong';
+  const sounds = await scrapeTrendingSounds(hashtag, limit, apifyToken);
   let synced = 0;
 
   for (const sound of sounds) {
     try {
-      // Verifica se a música já foi baixada anteriormente
       const existing = await findTrackBySourceUrl(sound.playUrl);
       if (existing) continue;
 
@@ -22,17 +27,16 @@ export async function syncViralTracks(limit: number = 50) {
       const arrayBuffer = await response.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
 
-      // Upload para R2
       const uuid = crypto.randomUUID();
-      const r2Key = `viral_tracks/tiktok/${new Date().getFullYear()}/${new Date().toISOString().slice(5, 7)}/${uuid}.mp3`;
+      const r2Key = `viral_tracks/${niche}/${new Date().getFullYear()}/${new Date().toISOString().slice(5, 7)}/${uuid}.mp3`;
       await uploadToR2(r2Key, buffer, { contentType: 'audio/mpeg' });
 
-      // Salva no banco de dados
       await createViralTrack({
         title: sound.musicName,
         artist: sound.authorName,
         sourceUrl: sound.playUrl,
         r2Key,
+        niche,
       });
 
       console.log(`[music.service] Áudio Sincronizado e Salvo: ${sound.musicName}`);
@@ -42,5 +46,5 @@ export async function syncViralTracks(limit: number = 50) {
     }
   }
 
-  return { found: sounds.length, newlySynced: synced };
+  return { niche, found: sounds.length, newlySynced: synced };
 }

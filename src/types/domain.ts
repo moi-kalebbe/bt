@@ -92,6 +92,7 @@ export interface ViralTrack {
   r2_key: string | null;
   active: boolean;
   gain_db: number;
+  niche: string;
   created_at: string;
 }
 

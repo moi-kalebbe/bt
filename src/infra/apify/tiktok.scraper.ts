@@ -138,12 +138,12 @@ export interface TikTokSound {
   authorName: string;
 }
 
-export async function scrapeTrendingSounds(hashtag: string = 'trendingsong', limit: number = 50): Promise<TikTokSound[]> {
+export async function scrapeTrendingSounds(hashtag: string = 'trendingsong', limit: number = 50, token?: string): Promise<TikTokSound[]> {
   const actorIdsEnv = process.env.APIFY_TIKTOK_ACTOR_IDS ?? process.env.APIFY_TIKTOK_ACTOR_ID;
   if (!actorIdsEnv) throw new Error('APIFY_TIKTOK_ACTOR_IDS not configured');
 
   const actorIds = actorIdsEnv.split(',').map((s) => s.trim()).filter(Boolean);
-  const client = createApifyClient();
+  const client = createApifyClient(token);
   const sounds: TikTokSound[] = [];
   const seenUrls = new Set<string>();
 

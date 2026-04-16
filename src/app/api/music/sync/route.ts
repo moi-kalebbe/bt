@@ -1,9 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { syncViralTracks } from '@/services/music.service';
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
-    const result = await syncViralTracks(50);
+    const body = await request.json().catch(() => ({}));
+    const niche = (body?.niche as string) || 'beach-tennis';
+    const result = await syncViralTracks(niche, 50);
     return NextResponse.json(result);
   } catch (error) {
     console.error('Error syncing music:', error);
