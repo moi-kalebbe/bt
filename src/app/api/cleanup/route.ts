@@ -121,13 +121,27 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Busca todos os itens ainda não publicados e não descartados
-  const { data: items, error } = await supabase
+  // Lê niche do body (JSON ou form POST)
+  let niche = 'beach-tennis';
+  try {
+    const body = await request.json();
+    if (body?.niche) niche = body.niche;
+  } catch {
+    const text = await request.text().catch(() => '');
+    niche = new URLSearchParams(text).get('niche') ?? 'beach-tennis';
+  }
+
+  // Busca itens do nicho ainda não publicados e não descartados
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let query = (supabase as any)
     .from('content_items')
     .select('id, title, description, hashtags, author_username, original_video_r2_key, processed_video_r2_key, thumbnail_r2_key, status')
+    .eq('niche', niche)
     .not('status', 'in', '("published","discarded")')
     .order('created_at', { ascending: false })
     .limit(500);
+
+  const { data: items, error } = await query;
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -176,10 +190,11 @@ export async function POST(request: NextRequest) {
   await supabase.from('content_items').delete().in('id', toReject);
 
   return NextResponse.json({
+    niche,
     kept: toKeep.length,
     deleted: toReject.length,
     r2FilesDeleted: r2Keys.length,
     uncertain: uncertain.length,
-    message: `Limpeza concluída. ${toReject.length} itens removidos, ${toKeep.length} mantidos.`,
+    message: `Limpeza concluída (${niche}). ${toReject.length} itens removidos, ${toKeep.length} mantidos.`,
   });
 }

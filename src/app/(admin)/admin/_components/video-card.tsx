@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Sun, Moon, ExternalLink, Send, Loader2, Check, X } from 'lucide-react';
+import { Sun, Moon, ExternalLink, Send, Loader2, Check, X, Trash2 } from 'lucide-react';
 import { normalizeStatusLabel, getSlotEmoji, getSlotLabel } from '@/domain/content';
 import type { ContentItem } from '@/types/domain';
 
@@ -18,6 +18,7 @@ export function VideoCard({ video }: VideoCardProps) {
   const [videoError, setVideoError] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [publishResult, setPublishResult] = useState<'success' | 'error' | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const needsProcessing = !video.processed_video_r2_key && !!video.original_video_r2_key;
 
   let extractedUrl: string | null = null;
@@ -56,6 +57,17 @@ export function VideoCard({ video }: VideoCardProps) {
       setPublishResult('error');
     } finally {
       setPublishing(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm('Deletar este vídeo permanentemente?')) return;
+    setDeleting(true);
+    try {
+      await fetch(`/api/videos/${video.id}`, { method: 'DELETE' });
+      router.refresh();
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -130,12 +142,23 @@ export function VideoCard({ video }: VideoCardProps) {
           </Badge>
         </div>
 
-        {video.selected_for_slot && (
+        {video.selected_for_slot ? (
           <div className="absolute right-2 top-2">
             <Badge variant="secondary">
               {getSlotEmoji(video.selected_for_slot)} {getSlotLabel(video.selected_for_slot)}
             </Badge>
           </div>
+        ) : (
+          <Button
+            variant="destructive"
+            size="sm"
+            className="absolute right-2 top-2 h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+            onClick={handleDelete}
+            disabled={deleting}
+            title="Deletar vídeo"
+          >
+            {deleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+          </Button>
         )}
 
         {video.duration_seconds && (

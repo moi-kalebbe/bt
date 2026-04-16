@@ -4,7 +4,7 @@ import { VideoFilters } from '@/app/(admin)/admin/_components/video-filters';
 import { MusicList } from '@/app/(admin)/admin/_components/music-list';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { RefreshCw, Play, Music, Download } from 'lucide-react';
+import { RefreshCw, Play, Music, Download, Trash2 } from 'lucide-react';
 import type { ContentStatus, Slot } from '@/types/domain';
 
 export const dynamic = 'force-dynamic';
@@ -63,6 +63,13 @@ export default async function AdminPage({ searchParams }: PageProps) {
             <Button type="submit" variant="outline" size="sm">
               <Play className="mr-2 h-4 w-4" />
               Agendar
+            </Button>
+          </form>
+          <form action="/api/cleanup" method="POST">
+            <input type="hidden" name="niche" value={niche} />
+            <Button type="submit" variant="destructive" size="sm">
+              <Trash2 className="mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">Limpar </span>Irrelevantes
             </Button>
           </form>
         </div>
