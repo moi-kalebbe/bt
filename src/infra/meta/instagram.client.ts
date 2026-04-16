@@ -103,9 +103,8 @@ export async function metaInstagramStoryPost(
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          media_type: 'IMAGE',
+          media_type: 'STORIES',
           image_url: imageUrl,
-          is_story: true,
           access_token: accessToken,
         }),
       }
