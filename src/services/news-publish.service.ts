@@ -46,9 +46,9 @@ export async function publishNewsStory(newsItemId: string): Promise<PublishNewsR
   }
 }
 
-/** Publica todas as notícias do dia com story art pronto. */
-export async function publishTodayNews(): Promise<{ published: number; failed: number }> {
-  const items = await findTodayStoryComposed();
+/** Publica todas as notícias do dia com story art pronto para um nicho específico. */
+export async function publishTodayNews(niche?: string): Promise<{ published: number; failed: number }> {
+  const items = await findTodayStoryComposed(niche);
   let published = 0;
   let failed = 0;
 
@@ -64,14 +64,4 @@ export async function publishTodayNews(): Promise<{ published: number; failed: n
   }
 
   return { published, failed };
-}
-
-function buildCaption(title: string): string {
-  return `🎾 ${title}
-
-Acesse o link na bio para ler a notícia completa!
-
-@dicas.beachtennis
-
-#beachtennis #beachtennisbrasil #beachtennislovers #beachtennisnotícias #esporte #tenis`;
 }

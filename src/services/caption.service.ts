@@ -1,34 +1,35 @@
 import type { ContentItem } from '@/types/domain';
+import { getNicheConfig } from '@/config/niche-configs';
 
-const ACCOUNT_HANDLE = '@dicas.beachtennis';
-const ACCOUNT_TAG = '#dicasbeachtennis';
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
 
 export async function generateCaption(content: ContentItem): Promise<string> {
   const apiKey = process.env.GROQ_API_KEY;
+  const nicheConfig = getNicheConfig(content.niche ?? 'beach-tennis');
+  const { accountHandle, accountTag, topicLabel, emoji } = nicheConfig.captionConfig;
 
   if (!apiKey) {
-    return buildFallbackCaption(content);
+    return buildFallbackCaption(content, nicheConfig.captionConfig);
   }
 
   const hashtags = extractHashtags(content);
   const author = content.author_display_name ?? content.author_username ?? 'desconhecido';
   const title = content.title ?? content.description ?? '';
 
-  const prompt = `Você é um especialista em criação de legendas cativantes para Reels de Beach Tennis.
+  const prompt = `Você é um especialista em criação de legendas cativantes para Reels de ${topicLabel}.
 
 Crie uma legenda envolvente para um Reel com base nestas informações:
 - Título/descrição do vídeo original: ${title}
 - Autor original: ${author} (@${content.author_username ?? ''})
 - Hashtags originais: ${hashtags.slice(0, 5).join(', ')}
-- Nossa conta: ${ACCOUNT_HANDLE}
+- Nossa conta: ${accountHandle}
 
 Regras obrigatórias:
-1. Comece com um título criativo relacionado ao beach tennis com emojis
+1. Comece com um título criativo relacionado a ${topicLabel} com emojis
 2. Escreva uma descrição curta e envolvente (2-3 linhas)
 3. Dê créditos ao autor original: Créditos: @${content.author_username ?? author}
-4. Inclua ${ACCOUNT_HANDLE} e ${ACCOUNT_TAG} obrigatoriamente
-5. Use 5-8 hashtags relevantes de beach tennis
+4. Inclua ${accountHandle} e ${accountTag} obrigatoriamente
+5. Use 5-8 hashtags relevantes de ${topicLabel}
 6. Use emojis naturalmente ao longo do texto
 7. NUNCA use aspas em nenhuma parte do texto
 8. Escreva em português brasileiro
@@ -41,9 +42,9 @@ Descrição envolvente aqui
 
 Créditos: @autor
 
-${ACCOUNT_HANDLE} 🎾
+${accountHandle} ${emoji}
 
-#hashtag1 #hashtag2 #hashtag3 ${ACCOUNT_TAG}
+#hashtag1 #hashtag2 #hashtag3 ${accountTag}
 
 Responda APENAS com a legenda, sem comentários adicionais.`;
 
@@ -61,7 +62,7 @@ Responda APENAS com a legenda, sem comentários adicionais.`;
         messages: [
           {
             role: 'system',
-            content: 'Você cria legendas criativas e cativantes para Reels de Beach Tennis em português brasileiro. Nunca use aspas. Responda apenas com a legenda.',
+            content: `Você cria legendas criativas e cativantes para Reels de ${topicLabel} em português brasileiro. Nunca use aspas. Responda apenas com a legenda.`,
           },
           { role: 'user', content: prompt },
         ],
@@ -71,15 +72,15 @@ Responda APENAS com a legenda, sem comentários adicionais.`;
     if (!res.ok) {
       const err = await res.text();
       console.warn('[caption] Groq error:', res.status, err);
-      return buildFallbackCaption(content);
+      return buildFallbackCaption(content, nicheConfig.captionConfig);
     }
 
     const data = await res.json();
     const text: string = data.choices?.[0]?.message?.content ?? '';
-    return text.trim() || buildFallbackCaption(content);
+    return text.trim() || buildFallbackCaption(content, nicheConfig.captionConfig);
   } catch (err) {
     console.warn('[caption] Erro ao gerar legenda, usando fallback:', err);
-    return buildFallbackCaption(content);
+    return buildFallbackCaption(content, nicheConfig.captionConfig);
   }
 }
 
@@ -94,17 +95,24 @@ function extractHashtags(content: ContentItem): string[] {
     .filter(Boolean);
 }
 
-function buildFallbackCaption(content: ContentItem): string {
-  const author = content.author_username ?? 'beachtennis';
-  const hashtags = extractHashtags(content).slice(0, 4).map(h => `#${h}`).join(' ');
+function buildFallbackCaption(
+  content: ContentItem,
+  captionConfig: ReturnType<typeof getNicheConfig>['captionConfig']
+): string {
+  const { accountHandle, accountTag, defaultHashtags, emoji } = captionConfig;
+  const author = content.author_username ?? 'creator';
+  const hashtags = [
+    ...extractHashtags(content).slice(0, 3).map(h => `#${h}`),
+    ...defaultHashtags.slice(0, 3).map(h => `#${h}`),
+  ].join(' ');
 
-  return `🎾 Beach Tennis na veia! 🔥
+  return `${emoji} ${captionConfig.topicLabel} na veia! 🔥
 
-Confira esse ponto incrível!
+Confira esse conteúdo incrível!
 
 Créditos: @${author}
 
-${ACCOUNT_HANDLE} 🏖️
+${accountHandle} ${emoji}
 
-${hashtags} ${ACCOUNT_TAG} #beachtennis #esporte`;
+${hashtags} ${accountTag}`;
 }

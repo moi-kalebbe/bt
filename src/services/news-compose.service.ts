@@ -7,6 +7,7 @@ import {
   updateNewsItem,
   setNewsStatus,
 } from '@/infra/supabase/repositories/news.repository';
+import { getNicheConfig } from '@/config/niche-configs';
 import type { NewsItem } from '@/types/domain';
 
 export interface ComposeResult {
@@ -58,8 +59,15 @@ export async function composeStoryArt(newsItemId: string): Promise<ComposeResult
       .toBuffer();
 
     // Layer 4 — text SVG (branding, category chip, title, summary, source)
+    const niche = item.niche ?? 'beach-tennis';
+    const nicheConfig = getNicheConfig(niche);
     const textBuffer = await sharp(
-      Buffer.from(buildTextSvg(item.title, item.summary ?? '', item.source_name, CANVAS_W, CANVAS_H))
+      Buffer.from(buildTextSvg(
+        item.title, item.summary ?? '', item.source_name,
+        CANVAS_W, CANVAS_H,
+        nicheConfig.newsChipLabel,
+        nicheConfig.newsTitlePrefixPattern,
+      ))
     )
       .png()
       .toBuffer();
@@ -94,9 +102,9 @@ export async function composeStoryArt(newsItemId: string): Promise<ComposeResult
   }
 }
 
-/** Compõe story art para todos os itens com status 'curated'. */
-export async function composeAllCurated(): Promise<{ composed: number; failed: number }> {
-  const items = await findNewsByStatus('curated');
+/** Compõe story art para todos os itens com status 'curated' de um nicho. */
+export async function composeAllCurated(niche?: string): Promise<{ composed: number; failed: number }> {
+  const items = await findNewsByStatus('curated', 100, niche);
   let composed = 0;
   let failed = 0;
 
@@ -146,14 +154,16 @@ function buildTextSvg(
   summary: string,
   sourceName: string,
   canvasW: number,
-  canvasH: number
+  canvasH: number,
+  chipLabel: string,
+  titlePrefixPattern: RegExp,
 ): string {
   const MARGIN = 72;
   const TITLE_LINE_H = 72;
   const SUMMARY_LINE_H = 46;
 
-  // Remove prefixo redundante "Beach Tennis:" do título (o chip já informa)
-  const rawTitle = title.replace(/^beach\s+tennis\s*[:\-–]\s*/i, '').trim();
+  // Remove prefixo redundante do título (o chip já informa o nicho)
+  const rawTitle = title.replace(titlePrefixPattern, '').trim();
 
   // Limites de caracteres — garante preenchimento visual consistente
   const MAX_TITLE_CHARS = 80;
@@ -173,9 +183,8 @@ function buildTextSvg(
   const titleStartY   = titleEndY - (titleLines.length - 1) * TITLE_LINE_H;
   const CHIP_Y        = titleStartY - 72;                                    // ↑ mais espaço
 
-  // Chip dimensions (estimate ~14px per char at font-size 20)
-  const CHIP_LABEL = 'BEACH TENNIS';
-  const CHIP_W = 208;
+  // Chip dimensions: ~14px per char at font-size 20 + 32px padding
+  const CHIP_W = chipLabel.length * 14 + 32;
   const CHIP_H = 38;
 
   const titleSvg = titleLines
@@ -219,7 +228,7 @@ function buildTextSvg(
     <text x="${MARGIN + 16}" y="${CHIP_Y - 4}"
       font-size="20" fill="#FFFFFF" font-weight="bold"
       font-family="Arial, Helvetica, sans-serif"
-      letter-spacing="2">${CHIP_LABEL}</text>
+      letter-spacing="2">${escapeXml(chipLabel)}</text>
 
     <!-- Title -->
     ${titleSvg}

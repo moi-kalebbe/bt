@@ -5,6 +5,19 @@ export interface NicheRssSource {
   needsResolution?: boolean;
 }
 
+export interface NicheCaptionConfig {
+  /** Handle da conta no Instagram, ex: '@dicas.beachtennis' */
+  accountHandle: string;
+  /** Hashtag da conta, ex: '#dicasbeachtennis' */
+  accountTag: string;
+  /** Hashtags padrão para legendas de fallback */
+  defaultHashtags: string[];
+  /** Descrição do tema para o prompt do Groq, ex: 'Beach Tennis' */
+  topicLabel: string;
+  /** Emoji principal do nicho, ex: '🎾' */
+  emoji: string;
+}
+
 export interface NicheConfig {
   id: string;
   /** Nome da variável de ambiente que contém o token Apify para este nicho */
@@ -19,6 +32,12 @@ export interface NicheConfig {
   newsGroqUserPrompt: (title: string, summary: string, content: string) => string;
   /** IDs de conta Zernio para publicação neste nicho */
   zernioAccountIds: { instagram: string; tiktok: string; youtube: string; facebook: string };
+  /** Configuração de legendas de vídeo */
+  captionConfig: NicheCaptionConfig;
+  /** Label do chip no story art de notícias, ex: 'BEACH TENNIS' */
+  newsChipLabel: string;
+  /** Padrão regex para remover prefixo redundante do título no story art */
+  newsTitlePrefixPattern: RegExp;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -71,6 +90,15 @@ const beachTennisConfig: NicheConfig = {
     youtube:   '69dd28f97dea335c2be74bbb',
     facebook:  '',
   },
+  captionConfig: {
+    accountHandle: '@dicas.beachtennis',
+    accountTag: '#dicasbeachtennis',
+    defaultHashtags: ['beachtennis', 'beachtennisbrasil', 'beachtennislovers', 'esporte'],
+    topicLabel: 'Beach Tennis',
+    emoji: '🎾',
+  },
+  newsChipLabel: 'BEACH TENNIS',
+  newsTitlePrefixPattern: /^beach\s+tennis\s*[:\-–]\s*/i,
   newsGroqSystemPrompt:
     'Você é um classificador de notícias esportivas. Responda apenas com JSON válido, sem markdown.',
   newsGroqUserPrompt: (title, summary, content) => `Analise este artigo de notícia e responda com JSON puro (sem markdown):
@@ -196,6 +224,15 @@ const aiTechConfig: NicheConfig = {
     youtube:   process.env.ZERNIO_YOUTUBE_ID_AI   ?? '',
     facebook:  '',
   },
+  captionConfig: {
+    accountHandle: process.env.CAPTION_ACCOUNT_HANDLE_AI ?? '@ia.automacao',
+    accountTag:    process.env.CAPTION_ACCOUNT_TAG_AI    ?? '#iaautomacao',
+    defaultHashtags: ['ia', 'inteligenciaartificial', 'llm', 'automacao', 'tech'],
+    topicLabel: 'IA & Automação',
+    emoji: '🤖',
+  },
+  newsChipLabel: 'IA & TECH',
+  newsTitlePrefixPattern: /^(ia|tech)\s*[:\-–&]\s*/i,
   newsGroqSystemPrompt:
     'Você é um classificador de artigos técnicos sobre Inteligência Artificial. Responda apenas com JSON válido, sem markdown.',
   newsGroqUserPrompt: (title, summary, content) => `Analise este artigo e responda com JSON puro (sem markdown):

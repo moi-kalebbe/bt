@@ -147,7 +147,7 @@ export async function findNewsByStatus(
  * Retorna itens com status 'story_composed' criados hoje no fuso de Brasília (UTC-3).
  * "Hoje BRT" = created_at >= início do dia atual em UTC-3.
  */
-export async function findTodayStoryComposed(): Promise<NewsItem[]> {
+export async function findTodayStoryComposed(niche?: string): Promise<NewsItem[]> {
   // Início do dia corrente em BRT convertido para UTC
   const now = new Date();
   const brtOffsetMs = -3 * 60 * 60 * 1000;
@@ -156,13 +156,16 @@ export async function findTodayStoryComposed(): Promise<NewsItem[]> {
   startOfDayBRT.setUTCHours(0, 0, 0, 0);
   const startOfDayUTC = new Date(startOfDayBRT.getTime() - brtOffsetMs);
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('news_items')
     .select()
     .eq('status', 'story_composed')
     .gte('created_at', startOfDayUTC.toISOString())
     .order('created_at', { ascending: true });
 
+  if (niche) query = query.eq('niche', niche);
+
+  const { data, error } = await query;
   if (error) throw error;
   return (data ?? []) as NewsItem[];
 }
