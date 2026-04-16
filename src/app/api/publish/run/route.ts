@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { findScheduledJobs } from '@/infra/supabase/repositories/publish-jobs.repository';
+import { findScheduledJobs, updatePublishJobStatus } from '@/infra/supabase/repositories/publish-jobs.repository';
 import { publishVideo } from '@/services/publish.service';
 import { supabase } from '@/infra/supabase/client';
 import type { ZernioPlatform } from '@/infra/zernio/client';
 
-// Called by cron (e.g., Vercel Cron, external service) every 30 min
-// Picks up all publish_jobs where scheduled_for <= now and status = 'scheduled'
 export async function POST(request: NextRequest) {
-  // Optional secret to prevent unauthorized calls
   const authHeader = request.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
@@ -20,34 +17,75 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ran: 0, results: [] });
   }
 
-  const results = await Promise.allSettled(
-    jobs.map(async (job) => {
-      // Resolve the platform from the associated publish_target
-      const { data: target } = await supabase
-        .from('publish_targets')
-        .select('platform')
-        .eq('id', (job as unknown as { target_id: string }).target_id)
-        .single();
+  // Track which platforms already hit their daily limit so we skip remaining
+  // jobs for that platform without making unnecessary API calls.
+  const dailyLimitPlatforms = new Set<string>();
 
-      if (!target) {
-        throw new Error(`Target not found for job ${(job as unknown as { id: string }).id}`);
-      }
+  const results: Array<Record<string, unknown>> = [];
 
-      return publishVideo(
-        (job as unknown as { content_item_id: string }).content_item_id,
-        target.platform as ZernioPlatform,
-        (job as unknown as { id: string }).id
+  for (const job of jobs) {
+    const j = job as unknown as {
+      id: string;
+      content_item_id: string;
+      target_id: string;
+    };
+
+    // Resolve platform from publish_target
+    const { data: target } = await supabase
+      .from('publish_targets')
+      .select('platform')
+      .eq('id', j.target_id)
+      .single();
+
+    if (!target) {
+      results.push({
+        jobId: j.id,
+        status: 'rejected',
+        error: `Target not found for job ${j.id}`,
+      });
+      continue;
+    }
+
+    const platform = target.platform as ZernioPlatform;
+
+    // Skip API call if this platform already hit its daily limit
+    if (dailyLimitPlatforms.has(platform)) {
+      await updatePublishJobStatus(
+        j.id,
+        'failed',
+        undefined,
+        'Daily limit already reached for this platform — skipped'
       );
-    })
-  );
+      results.push({
+        jobId: j.id,
+        status: 'fulfilled',
+        contentId: j.content_item_id,
+        platform,
+        success: false,
+        error: 'Daily limit already reached for this platform — skipped',
+      });
+      continue;
+    }
 
-  const summary = results.map((r, i) => ({
-    jobId: (jobs[i] as unknown as { id: string }).id,
-    status: r.status,
-    ...(r.status === 'fulfilled' ? r.value : { error: String((r as PromiseRejectedResult).reason) }),
-  }));
+    const result = await publishVideo(j.content_item_id, platform, j.id);
 
-  const successCount = summary.filter((s) => s.status === 'fulfilled' && (s as { success?: boolean }).success).length;
+    if (result.dailyLimitReached) {
+      dailyLimitPlatforms.add(platform);
+    }
 
-  return NextResponse.json({ ran: jobs.length, succeeded: successCount, results: summary });
+    results.push({
+      jobId: j.id,
+      status: 'fulfilled',
+      ...result,
+    });
+  }
+
+  const successCount = results.filter((r) => r.success === true).length;
+
+  return NextResponse.json({
+    ran: jobs.length,
+    succeeded: successCount,
+    dailyLimitPlatforms: Array.from(dailyLimitPlatforms),
+    results,
+  });
 }

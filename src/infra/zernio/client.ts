@@ -10,11 +10,19 @@ const ACCOUNT_IDS: Record<ZernioPlatform, string> = {
   facebook:  '', // não conectado
 };
 
+export interface ZernioResult {
+  success: boolean;
+  postId?: string;
+  error?: string;
+  /** true when the account hit its daily post quota — stop retrying today */
+  dailyLimitReached?: boolean;
+}
+
 export async function zernioPost(
   platform: ZernioPlatform,
   mediaUrl: string,
   caption: string
-): Promise<{ success: boolean; postId?: string; error?: string }> {
+): Promise<ZernioResult> {
   const apiKey = process.env.ZERNIO_API_KEY;
   if (!apiKey) return { success: false, error: 'ZERNIO_API_KEY not configured' };
 
@@ -39,7 +47,9 @@ export async function zernioPost(
   const data = await res.json();
 
   if (!res.ok) {
-    return { success: false, error: data.error ?? data.message ?? `HTTP ${res.status}` };
+    const errorMsg = data.error ?? data.message ?? `HTTP ${res.status}`;
+    const dailyLimitReached = /daily limit/i.test(String(errorMsg));
+    return { success: false, error: errorMsg, dailyLimitReached };
   }
 
   // status pode ser 'published', 'pending' (processando) ou 'failed'

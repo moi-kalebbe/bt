@@ -1,7 +1,7 @@
 import { findContentById, setContentPublished } from '@/infra/supabase/repositories/content.repository';
 import { updatePublishJobStatus } from '@/infra/supabase/repositories/publish-jobs.repository';
 import { supabase } from '@/infra/supabase/client';
-import { zernioPost, type ZernioPlatform } from '@/infra/zernio/client';
+import { zernioPost, type ZernioPlatform, type ZernioResult } from '@/infra/zernio/client';
 import { generateCaption } from '@/services/caption.service';
 import type { PublishTarget } from '@/types/domain';
 
@@ -11,6 +11,7 @@ export interface PublishResult {
   success: boolean;
   publishedAt?: string;
   error?: string;
+  dailyLimitReached?: boolean;
 }
 
 export async function publishVideo(
@@ -85,6 +86,7 @@ export async function publishVideo(
         platform,
         success: false,
         error: apiResult.error,
+        dailyLimitReached: apiResult.dailyLimitReached,
       };
     }
   } catch (error) {

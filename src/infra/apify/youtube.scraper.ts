@@ -11,11 +11,17 @@ export interface YouTubeShort {
   channelName?: string;  // campo alternativo para autor
   publishedAt: string;
   uploadDate?: string;   // campo alternativo para data
-  viewCount?: number;
   thumbnailUrl?: string;
   bestThumbnail?: { url?: string }; // campo alternativo de thumbnail
   duration?: number;
   durationString?: string;
+  // ── Métricas virais ─────────────────────────────────────────────────────
+  viewCount?:    number;  // visualizações
+  likeCount?:    number;  // likes
+  commentCount?: number;  // comentários
+  // Campos de autoridade do canal
+  channelSubscriberCount?: number;
+  isVerified?: boolean;
 }
 
 export interface YouTubeScrapeResult {
@@ -39,18 +45,8 @@ export async function scrapeYouTubeShorts(query: string): Promise<YouTubeScrapeR
   for (const actorId of actorIds) {
     try {
       console.log(`[youtube] Rodando ator: ${actorId}`);
-      // Diferentes atores usam nomes de campo distintos
-      const input: Record<string, unknown> = {
-        searchTerms: [query],   // apify/youtube-scraper
-        searchKeyword: query,   // streamers/youtube-shorts-scraper
-        query,
-        keywords: [query],
-        maxResults: 2000,
-        maxItems: 2000,
-        limit: 2000,
-        type: 'shorts',
-      };
-      const shorts = await client.runActor<YouTubeShort>(actorId, input);
+      const input = buildYouTubeActorInput(actorId, query);
+      const shorts = await client.runActor<YouTubeShort>(actorId, input, 100);
       for (const s of shorts) {
         if (s.id && !seenIds.has(s.id)) {
           seenIds.add(s.id);
@@ -64,6 +60,35 @@ export async function scrapeYouTubeShorts(query: string): Promise<YouTubeScrapeR
   }
 
   return { shorts: allShorts, datasetId: '' };
+}
+
+/**
+ * Builds actor-specific input to avoid strict schema validation errors (HTTP 400).
+ * Each actor has its own field names for the same concepts.
+ */
+function buildYouTubeActorInput(actorId: string, query: string): Record<string, unknown> {
+  const id = actorId.toLowerCase();
+
+  // streamers/youtube-shorts-scraper
+  if (id.includes('streamers')) {
+    return { keyword: query, maxItems: 100, type: 'shorts' };
+  }
+
+  // apify/youtube-scraper (official)
+  if (id.includes('apify/youtube')) {
+    return { searchKeywords: query, maxResults: 100, type: 'shorts' };
+  }
+
+  // Generic fallback — send the most common field names, keep it small
+  return {
+    query,
+    searchKeyword: query,
+    searchKeywords: query,
+    keyword: query,
+    maxItems: 100,
+    maxResults: 100,
+    type: 'shorts',
+  };
 }
 
 export function normalizeYouTubeShort(raw: YouTubeShort): NormalizedContent {

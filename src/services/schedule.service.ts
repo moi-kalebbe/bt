@@ -23,6 +23,20 @@ export interface ScheduleResult {
 export async function selectAndScheduleVideos(): Promise<ScheduleResult> {
   const result: ScheduleResult = { scheduled: [], skipped: 0 };
 
+  // Authors already used in the last 7 days — avoid scheduling them again
+  const recentCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const { data: recentItems } = await supabase
+    .from('content_items')
+    .select('author_username')
+    .not('selected_for_slot', 'is', null)
+    .gte('updated_at', recentCutoff);
+
+  const recentAuthors = new Set<string>(
+    (recentItems ?? [])
+      .map((r: { author_username: string | null }) => r.author_username)
+      .filter(Boolean) as string[]
+  );
+
   const { data: readyVideos } = await supabase
     .from('content_items')
     .select('*')
@@ -32,7 +46,8 @@ export async function selectAndScheduleVideos(): Promise<ScheduleResult> {
     .order('created_at', { ascending: false })
     .limit(200);
 
-  const available = (readyVideos ?? [])
+  // Score all candidates, then sort highest first
+  const candidates = (readyVideos ?? [])
     .map((video) => ({
       video,
       score: scoreContent({
@@ -51,6 +66,32 @@ export async function selectAndScheduleVideos(): Promise<ScheduleResult> {
       }),
     }))
     .sort((a, b) => b.score - a.score);
+
+  // Pick top videos respecting author diversity:
+  // 1. Prefer authors not seen in the last 7 days
+  // 2. Never repeat the same author within today's slots
+  const usedAuthorsToday = new Set<string>();
+  const available: typeof candidates = [];
+
+  for (const candidate of candidates) {
+    if (available.length >= SLOTS.length) break;
+    const author = candidate.video.author_username as string | null;
+    if (author && (recentAuthors.has(author) || usedAuthorsToday.has(author))) continue;
+    if (author) usedAuthorsToday.add(author);
+    available.push(candidate);
+  }
+
+  // If not enough diverse videos, fill remaining slots with best remaining (relaxed rule)
+  if (available.length < SLOTS.length) {
+    const picked = new Set(available.map((c) => c.video.id));
+    for (const candidate of candidates) {
+      if (available.length >= SLOTS.length) break;
+      if (!picked.has(candidate.video.id)) {
+        available.push(candidate);
+        picked.add(candidate.video.id);
+      }
+    }
+  }
 
   result.skipped = Math.max(0, SLOTS.length - available.length);
 

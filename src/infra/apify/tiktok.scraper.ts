@@ -14,19 +14,33 @@ export interface TikTokVideo {
     displayName: string;
   };
   authorMeta?: {
+    id?: string;
     name?: string;
     nickName?: string;
+    fans?: number;       // seguidores do criador
+    heart?: number;      // total de likes recebidos (lifetime)
+    video?: number;      // total de vídeos publicados
+    verified?: boolean;  // conta verificada
+    signature?: string;
+    profileUrl?: string;
   };
   createTime: number;
   hashtags: string[];
-  videoMeta?: { 
-    duration?: number; 
+  videoMeta?: {
+    duration?: number;
     coverUrl?: string;
     downloadLink?: string;
   };
   videoDuration?: number;
   thumbnailUrl?: string;
   covers?: { url?: string }[];
+  // ── Métricas virais ─────────────────────────────────────────────────────
+  playCount?:    number;  // visualizações/plays
+  diggCount?:    number;  // likes ("digg" é o nome interno do TikTok)
+  shareCount?:   number;  // compartilhamentos
+  commentCount?: number;  // comentários
+  collectCount?: number;  // saves / bookmarks
+  repostCount?:  number;  // reposts
 }
 
 export interface TikTokScrapeResult {
