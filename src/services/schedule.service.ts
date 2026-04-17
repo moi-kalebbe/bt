@@ -4,7 +4,7 @@ import {
 } from '@/infra/supabase/repositories/content.repository';
 import { createPublishJob } from '@/infra/supabase/repositories/publish-jobs.repository';
 import { supabase } from '@/infra/supabase/client';
-import { scoreContent } from '@/lib/scoring';
+import { scoreContent, hybridScore } from '@/lib/scoring';
 import type { ContentItem, PublishTarget, Slot } from '@/types/domain';
 
 // ─── Slots: 08:00 | 11:30 | 18:00 | 21:30 ───────────────────────────────────
@@ -50,11 +50,10 @@ export async function selectAndScheduleVideos(niche = 'beach-tennis'): Promise<S
     .order('created_at', { ascending: false })
     .limit(200);
 
-  // Score all candidates, then sort highest first
+  // Score all candidates using hybrid score when IG data is available
   const candidates = (readyVideos ?? [])
-    .map((video) => ({
-      video,
-      score: scoreContent({
+    .map((video) => {
+      const sourceScore = scoreContent({
         source: video.source as 'tiktok' | 'youtube',
         sourceVideoId: video.source_video_id,
         sourceUrl: video.source_url,
@@ -67,8 +66,12 @@ export async function selectAndScheduleVideos(niche = 'beach-tennis'): Promise<S
         thumbnailUrl: video.thumbnail_original_url,
         durationSeconds: video.duration_seconds,
         rawPayload: video.raw_payload,
-      }),
-    }))
+      });
+      const igPerfScore = video.instagram_performance_score != null
+        ? Number(video.instagram_performance_score)
+        : null;
+      return { video, score: hybridScore(sourceScore, igPerfScore) };
+    })
     .sort((a, b) => b.score - a.score);
 
   // Pick top videos respecting author diversity:

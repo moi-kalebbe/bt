@@ -1,4 +1,5 @@
-import type { NormalizedContent } from '@/types/domain';
+import type { ContentItem, NormalizedContent } from '@/types/domain';
+import type { InstagramMetrics } from '@/infra/supabase/repositories/instagram-metrics.repository';
 
 // ── Logarithmic helper ────────────────────────────────────────────────────────
 // Returns 0 when n <= 0, otherwise log10(n) * factor capped at max.
@@ -33,6 +34,23 @@ export interface ScoreBreakdown {
 
 export function scoreContent(item: NormalizedContent): number {
   return scoreContentDetailed(item).total;
+}
+
+export function scoreContentItem(item: ContentItem): ScoreBreakdown {
+  return scoreContentDetailed({
+    source: item.source,
+    sourceVideoId: item.source_video_id,
+    sourceUrl: item.source_url,
+    authorUsername: item.author_username,
+    authorDisplayName: item.author_display_name,
+    title: item.title,
+    description: item.description,
+    hashtags: item.hashtags,
+    publishedAtSource: item.published_at_source,
+    thumbnailUrl: item.thumbnail_original_url,
+    durationSeconds: item.duration_seconds,
+    rawPayload: item.raw_payload,
+  });
 }
 
 export function scoreContentDetailed(item: NormalizedContent): ScoreBreakdown {
@@ -97,4 +115,37 @@ export function scoreContentDetailed(item: NormalizedContent): ScoreBreakdown {
     comments: commentsScore,
     authorAuthority,
   };
+}
+
+// ── Instagram real-performance score (0–130 pts) ─────────────────────────────
+// Computed from actual Insights data collected after publishing.
+// Comparable in magnitude to scoreContentDetailed().total so they can be
+// blended linearly: hybrid = 0.4 * source + 0.6 * ig
+export function computeIgPerformanceScore(m: InstagramMetrics): number {
+  const engagementRate = Number(m.engagement_rate ?? 0);  // e.g. 0.03 = 3%
+  const reach  = m.reach  ?? 0;
+  const plays  = m.plays  ?? m.video_views ?? 0;
+  const saves  = m.saves  ?? 0;
+  const shares = m.shares ?? 0;
+
+  // Engagement rate: up to 60 pts (3% → 60, 1% → 20, 5%+ → capped)
+  const engScore  = Math.min(60, Math.floor(engagementRate * 2000));
+  // Reach: up to 40 pts logarithmic (10k → 40, 1k → 30)
+  const reachScore = logScore(reach, 10, 40);
+  // Plays: up to 20 pts (100k → 20)
+  const playsScore = logScore(plays, 4, 20);
+  // Saves bonus: up to 10 pts (saves = strong intent signal)
+  const savesBonus = logScore(saves, 5, 10);
+  // Shares bonus: up to 5 pts
+  const sharesBonus = logScore(shares, 3, 5);
+
+  return engScore + reachScore + playsScore + savesBonus + sharesBonus;
+}
+
+// ── Hybrid score for scheduling ──────────────────────────────────────────────
+// Blends source-platform score with real Instagram performance.
+// Falls back to source score only when no IG data exists yet.
+export function hybridScore(sourceScore: number, igPerfScore: number | null): number {
+  if (igPerfScore === null || igPerfScore === undefined) return sourceScore;
+  return Math.round(0.4 * sourceScore + 0.6 * igPerfScore);
 }

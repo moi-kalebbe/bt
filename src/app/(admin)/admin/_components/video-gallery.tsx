@@ -1,9 +1,13 @@
 import Link from 'next/link';
 import { findContents } from '@/infra/supabase/repositories/content.repository';
+import { findMetricsByContentIds } from '@/infra/supabase/repositories/instagram-metrics.repository';
+import { scoreContentItem } from '@/lib/scoring';
 import { VideoCard } from './video-card';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { ContentStatus, Slot } from '@/types/domain';
+
+type SortBy = 'score' | 'newest' | 'oldest';
 
 interface VideoGalleryProps {
   source?: string;
@@ -14,6 +18,7 @@ interface VideoGalleryProps {
   limit: number;
   offset: number;
   page: number;
+  sortBy?: SortBy;
 }
 
 export async function VideoGallery({
@@ -25,8 +30,9 @@ export async function VideoGallery({
   limit,
   offset,
   page,
+  sortBy,
 }: VideoGalleryProps) {
-  const { items, total } = await findContents({
+  let { items, total } = await findContents({
     source: source || undefined,
     status,
     authorUsername: author || undefined,
@@ -34,11 +40,27 @@ export async function VideoGallery({
     niche: niche || undefined,
     limit,
     offset,
+    sortBy,
   });
+
+  // Score all items (cheap — pure math on raw_payload already in memory)
+  const scored = items.map((item) => ({ item, score: scoreContentItem(item).total }));
+
+  // Fetch Instagram metrics for published videos in one query
+  const publishedIds = items.filter((i) => i.published_to_instagram).map((i) => i.id);
+  const igMetrics = await findMetricsByContentIds(publishedIds);
+
+  if (sortBy === 'score') {
+    // Sort by engagement score descending, then paginate in memory
+    scored.sort((a, b) => b.score - a.score);
+    total = scored.length;
+    scored.splice(0, offset);
+    scored.splice(limit);
+  }
 
   const totalPages = Math.ceil(total / limit);
 
-  if (items.length === 0) {
+  if (scored.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <div className="text-4xl mb-4">🎾</div>
@@ -59,8 +81,13 @@ export async function VideoGallery({
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {items.map((video) => (
-          <VideoCard key={video.id} video={video} />
+        {scored.map(({ item, score }) => (
+          <VideoCard
+            key={item.id}
+            video={item}
+            score={score}
+            igMetrics={igMetrics.get(item.id)}
+          />
         ))}
       </div>
 
@@ -73,7 +100,7 @@ export async function VideoGallery({
             asChild
           >
             <Link
-              href={`/admin?${buildQueryString({ source, status, author, slot, niche, page: page - 1 })}`}
+              href={`/admin?${buildQueryString({ source, status, author, slot, niche, sortBy, page: page - 1 })}`}
             >
               <ChevronLeft className="h-4 w-4" />
               Anterior
@@ -89,7 +116,7 @@ export async function VideoGallery({
             asChild
           >
             <Link
-              href={`/admin?${buildQueryString({ source, status, author, slot, niche, page: page + 1 })}`}
+              href={`/admin?${buildQueryString({ source, status, author, slot, niche, sortBy, page: page + 1 })}`}
             >
               Próxima
               <ChevronRight className="h-4 w-4" />
@@ -107,6 +134,7 @@ function buildQueryString(params: {
   author?: string;
   slot?: Slot;
   niche?: string;
+  sortBy?: SortBy;
   page?: number;
 }): string {
   const searchParams = new URLSearchParams();
@@ -115,6 +143,7 @@ function buildQueryString(params: {
   if (params.author) searchParams.set('author', params.author);
   if (params.slot) searchParams.set('slot', params.slot);
   if (params.niche && params.niche !== 'beach-tennis') searchParams.set('niche', params.niche);
+  if (params.sortBy && params.sortBy !== 'newest') searchParams.set('sort', params.sortBy);
   if (params.page && params.page > 1) searchParams.set('page', String(params.page));
   return searchParams.toString();
 }

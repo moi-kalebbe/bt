@@ -7,12 +7,15 @@ import { Button } from '@/components/ui/button';
 import { Sun, Moon, ExternalLink, Send, Loader2, Check, X, Trash2 } from 'lucide-react';
 import { normalizeStatusLabel, getSlotEmoji, getSlotLabel } from '@/domain/content';
 import type { ContentItem } from '@/types/domain';
+import type { InstagramMetrics } from '@/infra/supabase/repositories/instagram-metrics.repository';
 
 interface VideoCardProps {
   video: ContentItem;
+  score?: number;
+  igMetrics?: InstagramMetrics;
 }
 
-export function VideoCard({ video }: VideoCardProps) {
+export function VideoCard({ video, score, igMetrics }: VideoCardProps) {
   const router = useRouter();
   const [imgError, setImgError] = useState(false);
   const [videoError, setVideoError] = useState(false);
@@ -90,6 +93,11 @@ export function VideoCard({ video }: VideoCardProps) {
   const displayHashtags = (video.hashtags || [])
     .map((h: any) => typeof h === 'string' ? h : h?.name || h?.text || '')
     .filter(Boolean);
+
+  const raw = video.raw_payload as Record<string, unknown> | null;
+  const rawViews  = raw ? Number(raw.playCount  ?? raw.viewCount  ?? 0) : 0;
+  const rawLikes  = raw ? Number(raw.diggCount  ?? raw.likeCount  ?? 0) : 0;
+  const rawShares = raw ? Number(raw.shareCount ?? 0) : 0;
 
   const isFinished = video.status === 'published' || video.status === 'ignored_duplicate' || video.status === 'failed';
 
@@ -170,13 +178,46 @@ export function VideoCard({ video }: VideoCardProps) {
 
       <div className="p-3">
         <div className="mb-2 flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs text-muted-foreground truncate">
             @{video.author_username ?? 'unknown'}
           </span>
-          <Badge variant="outline" className="text-xs">
+          <Badge variant="outline" className="text-xs shrink-0">
             {video.source}
           </Badge>
+          {score !== undefined && score > 0 && (
+            <Badge variant="secondary" className="text-xs shrink-0 ml-auto font-mono">
+              ⚡{score}
+            </Badge>
+          )}
         </div>
+
+        {rawViews > 0 && (
+          <div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
+            <span title="Views">👁 {formatNum(rawViews)}</span>
+            {rawLikes > 0 && <span title="Curtidas">❤️ {formatNum(rawLikes)}</span>}
+            {rawShares > 0 && <span title="Compartilhamentos">🔁 {formatNum(rawShares)}</span>}
+          </div>
+        )}
+
+        {igMetrics && (
+          <div className="mb-1 rounded bg-emerald-50 dark:bg-emerald-950/30 px-2 py-1 text-xs">
+            <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-medium mb-0.5">
+              <span>📊 Instagram</span>
+              {igMetrics.engagement_rate != null && (
+                <span className="ml-auto font-mono">
+                  {(Number(igMetrics.engagement_rate) * 100).toFixed(1)}% eng.
+                </span>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-muted-foreground">
+              {igMetrics.reach != null && <span>👥 {formatNum(igMetrics.reach)} alcance</span>}
+              {igMetrics.plays != null && igMetrics.plays > 0 && <span>▶️ {formatNum(igMetrics.plays)} plays</span>}
+              {igMetrics.likes != null && igMetrics.likes > 0 && <span>❤️ {formatNum(igMetrics.likes)}</span>}
+              {igMetrics.shares != null && igMetrics.shares > 0 && <span>🔁 {formatNum(igMetrics.shares)}</span>}
+              {igMetrics.saves != null && igMetrics.saves > 0 && <span>🔖 {formatNum(igMetrics.saves)}</span>}
+            </div>
+          </div>
+        )}
 
         {video.title && (
           <h3 className="line-clamp-2 text-sm font-medium">{video.title}</h3>
@@ -264,4 +305,10 @@ function formatDuration(seconds: number): string {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
   return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+function formatNum(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return String(n);
 }

@@ -134,6 +134,67 @@ export async function metaInstagramStoryPost(
   }
 }
 
+export interface InsightsResult {
+  success: boolean;
+  reach?: number;
+  impressions?: number;
+  likes?: number;
+  comments?: number;
+  shares?: number;
+  saves?: number;
+  videoViews?: number;
+  plays?: number;
+  error?: string;
+  tokenExpired?: boolean;
+}
+
+/**
+ * Busca métricas de um post publicado no Instagram via Insights API.
+ * Requer permissão instagram_manage_insights no access token.
+ * Métricas ficam disponíveis ~24h após a publicação.
+ */
+export async function fetchPostInsights(
+  igMediaId: string,
+  accessToken: string
+): Promise<InsightsResult> {
+  const metrics = 'reach,impressions,likes,comments,shares,saved,plays,video_views';
+  try {
+    const res = await fetch(
+      `${GRAPH_BASE}/${igMediaId}/insights?metric=${metrics}&period=lifetime&access_token=${accessToken}`
+    );
+    const data = await res.json();
+
+    if (!res.ok || data.error) {
+      const err = data.error as { code?: number; message?: string } | undefined;
+      return {
+        success: false,
+        error: err?.message ?? 'Erro ao buscar insights',
+        tokenExpired: err?.code === 190 || err?.code === 102,
+      };
+    }
+
+    // data.data é um array: [{ name, period, values: [{ value }] }]
+    const byName: Record<string, number> = {};
+    for (const item of (data.data ?? []) as Array<{ name: string; values?: Array<{ value: number }> }>) {
+      byName[item.name] = item.values?.[0]?.value ?? 0;
+    }
+
+    return {
+      success: true,
+      reach:      byName['reach'],
+      impressions:byName['impressions'],
+      likes:      byName['likes'],
+      comments:   byName['comments'],
+      shares:     byName['shares'],
+      saves:      byName['saved'],
+      videoViews: byName['video_views'],
+      plays:      byName['plays'],
+    };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 function handleMetaError(error: { code?: number; message?: string; error_subcode?: number } | undefined): MetaResult {
   if (!error) return { success: false, error: 'Erro desconhecido da Meta API' };
   const msg = error.message ?? 'Erro Meta API';

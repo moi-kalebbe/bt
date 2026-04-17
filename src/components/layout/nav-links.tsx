@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { LayoutGrid, CalendarDays, Settings, Newspaper } from 'lucide-react';
+import { LayoutGrid, CalendarDays, Settings, Newspaper, BrainCircuit } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const NAV_ITEMS = [
   { href: '/admin', label: 'Vídeos', icon: LayoutGrid },
   { href: '/admin/news', label: 'Notícias', icon: Newspaper },
   { href: '/admin/schedule', label: 'Agendamento', icon: CalendarDays },
+  { href: '/admin/intelligence', label: 'Inteligência', icon: BrainCircuit },
   { href: '/admin/settings', label: 'Configurações', icon: Settings },
 ];
 

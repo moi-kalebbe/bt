@@ -387,6 +387,93 @@ export type Database = {
           created_at?: string;
         };
       };
+      story_templates: {
+        Row: {
+          id: string;
+          niche: string;
+          slot: number;
+          name: string;
+          config: unknown;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          niche: string;
+          slot: number;
+          name?: string;
+          config: unknown;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          niche?: string;
+          slot?: number;
+          name?: string;
+          config?: unknown;
+          is_active?: boolean;
+          updated_at?: string;
+        };
+      };
+      instagram_post_metrics: {
+        Row: {
+          id: string;
+          content_item_id: string;
+          instagram_post_id: string;
+          niche: string;
+          reach: number | null;
+          impressions: number | null;
+          likes: number | null;
+          comments: number | null;
+          shares: number | null;
+          saves: number | null;
+          video_views: number | null;
+          plays: number | null;
+          engagement_rate: number | null;
+          published_at: string | null;
+          collected_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          content_item_id: string;
+          instagram_post_id: string;
+          niche: string;
+          reach?: number | null;
+          impressions?: number | null;
+          likes?: number | null;
+          comments?: number | null;
+          shares?: number | null;
+          saves?: number | null;
+          video_views?: number | null;
+          plays?: number | null;
+          engagement_rate?: number | null;
+          published_at?: string | null;
+          collected_at?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          content_item_id?: string;
+          instagram_post_id?: string;
+          niche?: string;
+          reach?: number | null;
+          impressions?: number | null;
+          likes?: number | null;
+          comments?: number | null;
+          shares?: number | null;
+          saves?: number | null;
+          video_views?: number | null;
+          plays?: number | null;
+          engagement_rate?: number | null;
+          published_at?: string | null;
+          collected_at?: string;
+          created_at?: string;
+        };
+      };
       news_items: {
         Row: {
           id: string;

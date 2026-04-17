@@ -22,6 +22,7 @@ interface VideoFiltersProps {
   currentStatus?: string;
   currentAuthor: string;
   currentSlot?: string;
+  currentSort?: string;
   mobileMode?: boolean;
 }
 
@@ -29,7 +30,7 @@ export function VideoFilters(props: VideoFiltersProps) {
   const [sheetOpen, setSheetOpen] = useState(false);
 
   if (props.mobileMode) {
-    const hasFilters = props.currentSource || props.currentStatus || props.currentAuthor || props.currentSlot;
+    const hasFilters = props.currentSource || props.currentStatus || props.currentAuthor || props.currentSlot || props.currentSort;
     return (
       <>
         <Button
@@ -42,7 +43,7 @@ export function VideoFilters(props: VideoFiltersProps) {
           Filtros
           {hasFilters && (
             <Badge variant="secondary" className="h-4 px-1 text-xs">
-              {[props.currentSource, props.currentStatus, props.currentAuthor, props.currentSlot].filter(Boolean).length}
+              {[props.currentSource, props.currentStatus, props.currentAuthor, props.currentSlot, props.currentSort].filter(Boolean).length}
             </Badge>
           )}
         </Button>
@@ -70,6 +71,7 @@ function FilterPanel({
   currentStatus,
   currentAuthor,
   currentSlot,
+  currentSort,
   onClose,
 }: VideoFiltersProps & { onClose?: () => void }) {
   const router = useRouter();
@@ -96,7 +98,7 @@ function FilterPanel({
     onClose?.();
   }, [router, searchParams, onClose]);
 
-  const hasFilters = currentSource || currentStatus || currentAuthor || currentSlot;
+  const hasFilters = currentSource || currentStatus || currentAuthor || currentSlot || currentSort;
 
   return (
     <div className="space-y-4">
@@ -166,6 +168,20 @@ function FilterPanel({
             <SelectItem value="midday">Meio-dia (11:30)</SelectItem>
             <SelectItem value="evening">Tarde (18:00)</SelectItem>
             <SelectItem value="night">Noite (21:30)</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="text-xs text-muted-foreground">Ordenar por</label>
+        <Select value={currentSort || 'newest'} onValueChange={(v) => updateFilter('sort', v === 'newest' ? undefined : v)}>
+          <SelectTrigger className="h-8 text-sm">
+            <SelectValue placeholder="Mais Recentes" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="newest">⏰ Mais Recentes</SelectItem>
+            <SelectItem value="score">⚡ Mais Engajados</SelectItem>
+            <SelectItem value="oldest">🕰 Mais Antigos</SelectItem>
           </SelectContent>
         </Select>
       </div>

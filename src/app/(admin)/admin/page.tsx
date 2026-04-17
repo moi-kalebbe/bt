@@ -4,7 +4,7 @@ import { VideoFilters } from '@/app/(admin)/admin/_components/video-filters';
 import { MusicList } from '@/app/(admin)/admin/_components/music-list';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { RefreshCw, Play, Music, Download, Trash2 } from 'lucide-react';
+import { RefreshCw, Play, Music, Download, Trash2, BarChart2 } from 'lucide-react';
 import type { ContentStatus, Slot } from '@/types/domain';
 
 export const dynamic = 'force-dynamic';
@@ -17,6 +17,7 @@ interface PageProps {
     slot?: string;
     page?: string;
     niche?: string;
+    sort?: string;
   }>;
 }
 
@@ -29,6 +30,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
   const slot = params.slot as Slot | undefined;
   const page = parseInt(params.page ?? '1', 10);
   const niche = params.niche ?? 'beach-tennis';
+  const sort = (params.sort ?? 'newest') as 'score' | 'newest' | 'oldest';
   const limit = 20;
   const offset = (page - 1) * limit;
 
@@ -72,6 +74,13 @@ export default async function AdminPage({ searchParams }: PageProps) {
               <span className="hidden sm:inline">Limpar </span>Irrelevantes
             </Button>
           </form>
+          <form action="/api/insights/collect" method="POST">
+            <input type="hidden" name="niche" value={niche} />
+            <Button type="submit" variant="outline" size="sm">
+              <BarChart2 className="mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">Coletar </span>Insights
+            </Button>
+          </form>
         </div>
       </div>
 
@@ -85,6 +94,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
               currentStatus={status}
               currentAuthor={author}
               currentSlot={slot}
+              currentSort={sort !== 'newest' ? sort : undefined}
             />
             <Suspense fallback={<Skeleton className="h-32 w-full" />}>
               <MusicList />
@@ -101,6 +111,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
               currentStatus={status}
               currentAuthor={author}
               currentSlot={slot}
+              currentSort={sort !== 'newest' ? sort : undefined}
               mobileMode
             />
           </div>
@@ -125,6 +136,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
               limit={limit}
               offset={offset}
               page={page}
+              sortBy={sort}
             />
           </Suspense>
         </div>
