@@ -1,6 +1,8 @@
 import { findBlockedAuthors, createBlockedAuthor, deleteBlockedAuthor } from '@/infra/supabase/repositories/blocked-authors.repository';
 import { getAllNicheSettings, upsertNicheSettings } from '@/infra/supabase/repositories/niche-settings.repository';
+import { getTemplatesForNiche } from '@/infra/supabase/repositories/story-templates.repository';
 import { NICHES } from '@/config/niches';
+import { TemplateEditorSection } from './template-editor-section';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -28,9 +30,10 @@ export default async function SettingsPage({
   const { niche: nicheParam } = await searchParams;
   const currentNiche = nicheParam ?? 'beach-tennis';
 
-  const [blockedAuthors, nicheSettingsList] = await Promise.all([
+  const [blockedAuthors, nicheSettingsList, templates] = await Promise.all([
     findBlockedAuthors(undefined, currentNiche),
     getAllNicheSettings().catch(() => []),
+    getTemplatesForNiche(currentNiche).catch(() => []),
   ]);
 
   const settingsMap = Object.fromEntries(nicheSettingsList.map((s) => [s.niche_id, s]));
@@ -192,7 +195,7 @@ export default async function SettingsPage({
         </div>
       </div>
 
-      <Separator />
+      <TemplateEditorSection niche={currentNiche} initialTemplates={templates} />
 
       {/* ── Autores Bloqueados (por nicho) ───────────────────────────────────── */}
       <div className="grid gap-6 md:grid-cols-2">

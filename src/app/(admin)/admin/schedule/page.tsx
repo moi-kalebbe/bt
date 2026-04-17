@@ -1,12 +1,11 @@
-import { Suspense } from 'react';
-import { findContents } from '@/infra/supabase/repositories/content.repository';
+import { findContents, countByStatus } from '@/infra/supabase/repositories/content.repository';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Play, Sun, Moon, Sunset, Coffee } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { Play, CheckCircle2, Clock, TrendingUp, Activity } from 'lucide-react';
 import { NICHES } from '@/config/niches';
-import { normalizeStatusLabel, getSlotLabel } from '@/domain/content';
+import { SlotCardEnhanced } from './slot-card-enhanced';
+import { ScheduleList } from './schedule-list';
 import type { Slot } from '@/types/domain';
 
 export const dynamic = 'force-dynamic';
@@ -20,25 +19,29 @@ export default async function SchedulePage({ searchParams }: PageProps) {
   const niche = params.niche ?? 'beach-tennis';
   const nicheLabel = NICHES.find((n) => n.id === niche)?.label ?? niche;
 
-  const { items: scheduledVideos } = await findContents({
-    status: 'scheduled',
-    niche,
-    limit: 20,
-    offset: 0,
-  });
+  const [{ items: scheduledVideos }, stats] = await Promise.all([
+    findContents({ status: 'scheduled', niche, limit: 100, offset: 0 }),
+    countByStatus(niche),
+  ]);
 
-  const morningContent  = scheduledVideos.find((v) => v.selected_for_slot === 'morning');
-  const middayContent   = scheduledVideos.find((v) => v.selected_for_slot === 'midday');
-  const eveningContent  = scheduledVideos.find((v) => v.selected_for_slot === 'evening');
-  const nightContent    = scheduledVideos.find((v) => v.selected_for_slot === 'night');
+  const slots: Record<Slot, (typeof scheduledVideos)[0] | undefined> = {
+    morning: scheduledVideos.find((v) => v.selected_for_slot === 'morning'),
+    midday: scheduledVideos.find((v) => v.selected_for_slot === 'midday'),
+    evening: scheduledVideos.find((v) => v.selected_for_slot === 'evening'),
+    night: scheduledVideos.find((v) => v.selected_for_slot === 'night'),
+  };
+
+  const filledSlots = Object.values(slots).filter(Boolean).length;
 
   return (
     <div className="p-4 md:p-6 space-y-6">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-xl font-bold">Agendamento — {nicheLabel}</h1>
-          <p className="text-sm text-muted-foreground">Vídeos selecionados para publicação</p>
+          <p className="text-sm text-muted-foreground">
+            {filledSlots} de 4 slots preenchidos para o próximo ciclo
+          </p>
         </div>
         <form action="/api/schedule" method="POST">
           <input type="hidden" name="niche" value={niche} />
@@ -49,118 +52,94 @@ export default async function SchedulePage({ searchParams }: PageProps) {
         </form>
       </div>
 
-      {/* Slot cards */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <SlotCard
-          slot="morning"
-          icon={<Coffee className="h-6 w-6 text-yellow-500" />}
-          title="Manhã"
-          time="08:00"
-          content={morningContent}
+      {/* KPI Cards */}
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          title="No Pipeline"
+          value={stats.pipeline}
+          icon={<Activity className="h-4 w-4 text-muted-foreground" />}
+          description="Descobertos, baixados e prontos"
         />
-        <SlotCard
-          slot="midday"
-          icon={<Sun className="h-6 w-6 text-orange-500" />}
-          title="Meio-dia"
-          time="11:30"
-          content={middayContent}
+        <StatCard
+          title="Prontos"
+          value={stats.ready}
+          icon={<CheckCircle2 className="h-4 w-4 text-blue-500" />}
+          description="Aguardando agendamento"
+          valueClass="text-blue-600 dark:text-blue-400"
         />
-        <SlotCard
-          slot="evening"
-          icon={<Sunset className="h-6 w-6 text-rose-500" />}
-          title="Tarde"
-          time="18:00"
-          content={eveningContent}
+        <StatCard
+          title="Agendados"
+          value={stats.scheduled}
+          icon={<Clock className="h-4 w-4 text-yellow-500" />}
+          description="Selecionados para publicar"
+          valueClass="text-yellow-600 dark:text-yellow-400"
         />
-        <SlotCard
-          slot="night"
-          icon={<Moon className="h-6 w-6 text-blue-500" />}
-          title="Noite"
-          time="21:30"
-          content={nightContent}
+        <StatCard
+          title="Publicados Hoje"
+          value={stats.publishedToday}
+          icon={<TrendingUp className="h-4 w-4 text-green-500" />}
+          description="No Instagram hoje"
+          valueClass="text-green-600 dark:text-green-400"
         />
       </div>
 
-      {/* Table */}
+      <Separator />
+
+      {/* Slot Cards */}
       <div>
-        <h2 className="mb-3 text-base font-semibold">Todos os agendados</h2>
-        <div className="rounded-lg border bg-card overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-muted/50">
-                <th className="px-4 py-3 text-left font-medium">Slot</th>
-                <th className="px-4 py-3 text-left font-medium">Título</th>
-                <th className="px-4 py-3 text-left font-medium hidden sm:table-cell">Autor</th>
-                <th className="px-4 py-3 text-left font-medium">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {scheduledVideos.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">
-                    Nenhum vídeo agendado. Clique em &ldquo;Rodar Scheduler&rdquo; para selecionar.
-                  </td>
-                </tr>
-              ) : (
-                scheduledVideos.map((video) => (
-                  <tr key={video.id} className="border-b last:border-0">
-                    <td className="px-4 py-3">
-                      {video.selected_for_slot && (
-                        <Badge variant="secondary">
-                          {getSlotLabel(video.selected_for_slot as Slot)}
-                        </Badge>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 max-w-[200px] truncate">{video.title ?? '-'}</td>
-                    <td className="px-4 py-3 hidden sm:table-cell text-muted-foreground">
-                      @{video.author_username}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge>{normalizeStatusLabel(video.status as import('@/types/domain').ContentStatus)}</Badge>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base font-semibold">Próximas Publicações</h2>
+          <span className="text-xs text-muted-foreground">
+            {filledSlots}/4 slots
+          </span>
+        </div>
+
+        {/* Pipeline progress bar */}
+        <div className="mb-4 h-1.5 w-full rounded-full bg-muted overflow-hidden">
+          <div
+            className="h-full rounded-full bg-primary transition-all"
+            style={{ width: `${(filledSlots / 4) * 100}%` }}
+          />
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <SlotCardEnhanced slot="morning" content={slots.morning} />
+          <SlotCardEnhanced slot="midday" content={slots.midday} />
+          <SlotCardEnhanced slot="evening" content={slots.evening} />
+          <SlotCardEnhanced slot="night" content={slots.night} />
         </div>
       </div>
+
+      <Separator />
+
+      {/* Calendar + List */}
+      <ScheduleList videos={scheduledVideos} />
     </div>
   );
 }
 
-function SlotCard({
-  icon,
+function StatCard({
   title,
-  time,
-  content,
+  value,
+  icon,
+  description,
+  valueClass = '',
 }: {
-  slot: Slot;
-  icon: React.ReactNode;
   title: string;
-  time: string;
-  content: import('@/types/domain').ContentItem | undefined;
+  value: number;
+  icon: React.ReactNode;
+  description: string;
+  valueClass?: string;
 }) {
   return (
-    <Card className={content ? 'border-primary/40' : ''}>
-      <CardHeader className="pb-2">
-        <div className="flex items-center gap-2">
+    <Card>
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs font-medium text-muted-foreground">{title}</p>
           {icon}
-          <div>
-            <CardTitle className="text-sm font-semibold">{title}</CardTitle>
-            <p className="text-xs text-muted-foreground">{time}</p>
-          </div>
         </div>
-      </CardHeader>
-      <CardContent>
-        {content ? (
-          <div className="space-y-1">
-            <p className="text-sm font-medium line-clamp-2">{content.title ?? 'Sem título'}</p>
-            <p className="text-xs text-muted-foreground">@{content.author_username}</p>
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">Vazio</p>
-        )}
+        <p className={`text-2xl font-bold tracking-tight ${valueClass}`}>{value}</p>
+        <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
       </CardContent>
     </Card>
   );
