@@ -2,8 +2,8 @@ import { Suspense } from 'react';
 import { VideoGallery } from '@/app/(admin)/admin/_components/video-gallery';
 import { VideoFilters } from '@/app/(admin)/admin/_components/video-filters';
 import { MusicList } from '@/app/(admin)/admin/_components/music-list';
-import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ToolbarActionButton } from './_components/toolbar-action-button';
 import { RefreshCw, Play, Music, Download, Trash2, BarChart2 } from 'lucide-react';
 import type { ContentStatus, Slot } from '@/types/domain';
 
@@ -39,48 +39,46 @@ export default async function AdminPage({ searchParams }: PageProps) {
       {/* Toolbar */}
       <div className="border-b bg-card px-4 md:px-6 py-3">
         <div className="flex flex-wrap items-center gap-2">
-          <form action="/api/music/sync" method="POST">
-            <Button type="submit" variant="outline" size="sm">
-              <Music className="mr-2 h-4 w-4" />
-              <span className="hidden sm:inline">Sincronizar </span>Músicas
-            </Button>
-          </form>
-          <form action="/api/scrape" method="POST">
-            <input type="hidden" name="niche" value={niche} />
-            <Button type="submit" variant="outline" size="sm">
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Coleta
-            </Button>
-          </form>
-          <form action="/api/ingest" method="POST">
-            <input type="hidden" name="niche" value={niche} />
-            <Button type="submit" variant="secondary" size="sm">
-              <Download className="mr-2 h-4 w-4" />
-              <span className="hidden sm:inline">Ingerir</span>
-              <span className="sm:hidden">Ingerir</span>
-            </Button>
-          </form>
-          <form action="/api/schedule" method="POST">
-            <input type="hidden" name="niche" value={niche} />
-            <Button type="submit" variant="outline" size="sm">
-              <Play className="mr-2 h-4 w-4" />
-              Agendar
-            </Button>
-          </form>
-          <form action="/api/cleanup" method="POST">
-            <input type="hidden" name="niche" value={niche} />
-            <Button type="submit" variant="destructive" size="sm">
-              <Trash2 className="mr-2 h-4 w-4" />
-              <span className="hidden sm:inline">Limpar </span>Irrelevantes
-            </Button>
-          </form>
-          <form action="/api/insights/collect" method="POST">
-            <input type="hidden" name="niche" value={niche} />
-            <Button type="submit" variant="outline" size="sm">
-              <BarChart2 className="mr-2 h-4 w-4" />
-              <span className="hidden sm:inline">Coletar </span>Insights
-            </Button>
-          </form>
+          <ToolbarActionButton
+            apiPath="/api/music/sync"
+            label="Sincronizar Músicas"
+            labelShort="Músicas"
+            icon={Music}
+          />
+          <ToolbarActionButton
+            apiPath="/api/scrape"
+            body={{ niche }}
+            label="Coleta"
+            icon={RefreshCw}
+          />
+          <ToolbarActionButton
+            apiPath="/api/ingest"
+            body={{ niche }}
+            label="Ingerir"
+            icon={Download}
+            variant="secondary"
+          />
+          <ToolbarActionButton
+            apiPath="/api/schedule"
+            body={{ niche }}
+            label="Agendar"
+            icon={Play}
+          />
+          <ToolbarActionButton
+            apiPath="/api/cleanup"
+            body={{ niche }}
+            label="Limpar Irrelevantes"
+            labelShort="Limpar"
+            icon={Trash2}
+            variant="destructive"
+          />
+          <ToolbarActionButton
+            apiPath="/api/insights/collect"
+            body={{ niche }}
+            label="Coletar Insights"
+            labelShort="Insights"
+            icon={BarChart2}
+          />
         </div>
       </div>
 

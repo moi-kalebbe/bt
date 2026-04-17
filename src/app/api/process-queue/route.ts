@@ -7,8 +7,9 @@ export const maxDuration = 300;
 // Processa todos os vídeos ready que ainda não passaram pelo FFmpeg
 export async function POST(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
+  const fromAdminUI = request.headers.get('x-admin-ui') === '1';
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  if (cronSecret && !fromAdminUI && authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
