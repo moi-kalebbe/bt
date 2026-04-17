@@ -125,6 +125,7 @@ async function classifyWithGroq(
           { role: 'user', content: userMessage },
         ],
       }),
+      signal: AbortSignal.timeout(25_000),
     });
 
     if (res.status === 429) {
