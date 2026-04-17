@@ -19,8 +19,12 @@ const parser = new Parser({
   headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ContentBot/1.0)' },
 });
 
+const MAX_ITEMS_PER_SOURCE = 8;   // evita RSS com dezenas de itens travando o job
+const FETCH_BUDGET_MS = 8 * 60 * 1000; // 8 min — job para de processar novos itens após isso
+
 export async function fetchNicheNews(niche = 'beach-tennis'): Promise<FetchNewsResult> {
   const config = getNicheConfig(niche);
+  const deadline = Date.now() + FETCH_BUDGET_MS;
 
   const result: FetchNewsResult = {
     discovered: 0,
@@ -31,6 +35,11 @@ export async function fetchNicheNews(niche = 'beach-tennis'): Promise<FetchNewsR
   };
 
   for (const source of config.newsSources) {
+    if (Date.now() > deadline) {
+      result.errors.push('[fetch] Budget de tempo atingido — fontes restantes ignoradas');
+      break;
+    }
+
     let feed;
     try {
       feed = await parser.parseURL(source.url);
@@ -41,7 +50,8 @@ export async function fetchNicheNews(niche = 'beach-tennis'): Promise<FetchNewsR
       continue;
     }
 
-    for (const item of feed.items ?? []) {
+    for (const item of (feed.items ?? []).slice(0, MAX_ITEMS_PER_SOURCE)) {
+      if (Date.now() > deadline) break;
       try {
         // Filtro por palavra-chave — insensível a maiúsculas E acentos
         if (source.filterKeyword) {
