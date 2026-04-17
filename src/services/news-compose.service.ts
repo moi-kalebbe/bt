@@ -400,7 +400,14 @@ async function fetchCoverImage(
       signal: AbortSignal.timeout(15_000),
     });
     if (!res.ok) return null;
-    return Buffer.from(await res.arrayBuffer());
+
+    const contentType = res.headers.get('content-type') ?? '';
+    if (contentType && !contentType.startsWith('image/')) return null;
+
+    const raw = Buffer.from(await res.arrayBuffer());
+
+    // Normalize to JPEG — rejects fonts, HTML, AVIF, etc. that Sharp can't process
+    return await sharp(raw).jpeg({ quality: 95 }).toBuffer();
   } catch {
     return null;
   }
