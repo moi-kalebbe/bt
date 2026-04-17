@@ -56,7 +56,7 @@ export function scoreContentItem(item: ContentItem): ScoreBreakdown {
 export function scoreContentDetailed(item: NormalizedContent): ScoreBreakdown {
   // ── Metadata signals ───────────────────────────────────────────────────────
   let metadata = 0;
-  if (item.hashtags.length >= 3)                          metadata += 10;
+  if ((item.hashtags?.length ?? 0) >= 3)                  metadata += 10;
   if (item.durationSeconds && item.durationSeconds <= 60) metadata += 8;
   if (item.title && item.title.trim().length > 10)        metadata += 5;
   if (item.authorUsername)                                metadata += 2;

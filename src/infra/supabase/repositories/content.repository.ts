@@ -296,37 +296,46 @@ export interface PipelineStats {
 }
 
 export async function countByStatus(niche: string): Promise<PipelineStats> {
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
+  const fallback: PipelineStats = { pipeline: 0, ready: 0, scheduled: 0, publishedToday: 0 };
 
-  const [pipelineRes, readyRes, scheduledRes, publishedRes] = await Promise.all([
-    supabase
-      .from('content_items')
-      .select('*', { count: 'exact', head: true })
-      .eq('niche', niche)
-      .or('status.eq.discovered,status.eq.downloaded,status.eq.uploaded_r2,status.eq.ready,status.eq.scheduled,status.eq.processing'),
-    supabase
-      .from('content_items')
-      .select('*', { count: 'exact', head: true })
-      .eq('niche', niche)
-      .eq('status', 'ready'),
-    supabase
-      .from('content_items')
-      .select('*', { count: 'exact', head: true })
-      .eq('niche', niche)
-      .eq('status', 'scheduled'),
-    supabase
-      .from('content_items')
-      .select('*', { count: 'exact', head: true })
-      .eq('niche', niche)
-      .eq('published_to_instagram', true)
-      .gte('published_at_instagram', todayStart.toISOString()),
-  ]);
+  try {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
 
-  return {
-    pipeline: pipelineRes.count ?? 0,
-    ready: readyRes.count ?? 0,
-    scheduled: scheduledRes.count ?? 0,
-    publishedToday: publishedRes.count ?? 0,
-  };
+    const pipelineStatuses = ['discovered', 'downloaded', 'uploaded_r2', 'ready', 'scheduled', 'processing'];
+
+    const [pipelineRes, readyRes, scheduledRes, publishedRes] = await Promise.all([
+      supabase
+        .from('content_items')
+        .select('*', { count: 'exact', head: true })
+        .eq('niche', niche)
+        .in('status', pipelineStatuses),
+      supabase
+        .from('content_items')
+        .select('*', { count: 'exact', head: true })
+        .eq('niche', niche)
+        .eq('status', 'ready'),
+      supabase
+        .from('content_items')
+        .select('*', { count: 'exact', head: true })
+        .eq('niche', niche)
+        .eq('status', 'scheduled'),
+      supabase
+        .from('content_items')
+        .select('*', { count: 'exact', head: true })
+        .eq('niche', niche)
+        .eq('published_to_instagram', true)
+        .gte('published_at_instagram', todayStart.toISOString()),
+    ]);
+
+    return {
+      pipeline: pipelineRes.count ?? 0,
+      ready: readyRes.count ?? 0,
+      scheduled: scheduledRes.count ?? 0,
+      publishedToday: publishedRes.count ?? 0,
+    };
+  } catch (err) {
+    console.error('[countByStatus] failed:', err);
+    return fallback;
+  }
 }

@@ -3,8 +3,7 @@ import { VideoGallery } from '@/app/(admin)/admin/_components/video-gallery';
 import { VideoFilters } from '@/app/(admin)/admin/_components/video-filters';
 import { MusicList } from '@/app/(admin)/admin/_components/music-list';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ToolbarActionButton } from './_components/toolbar-action-button';
-import { RefreshCw, Play, Music, Download, Trash2, BarChart2 } from 'lucide-react';
+import { AdminToolbar } from './_components/admin-toolbar';
 import type { ContentStatus, Slot } from '@/types/domain';
 
 export const dynamic = 'force-dynamic';
@@ -38,48 +37,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
     <div className="flex flex-col h-full">
       {/* Toolbar */}
       <div className="border-b bg-card px-4 md:px-6 py-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <ToolbarActionButton
-            apiPath="/api/music/sync"
-            label="Sincronizar Músicas"
-            labelShort="Músicas"
-            icon={Music}
-          />
-          <ToolbarActionButton
-            apiPath="/api/scrape"
-            body={{ niche }}
-            label="Coleta"
-            icon={RefreshCw}
-          />
-          <ToolbarActionButton
-            apiPath="/api/ingest"
-            body={{ niche }}
-            label="Ingerir"
-            icon={Download}
-            variant="secondary"
-          />
-          <ToolbarActionButton
-            apiPath="/api/schedule"
-            body={{ niche }}
-            label="Agendar"
-            icon={Play}
-          />
-          <ToolbarActionButton
-            apiPath="/api/cleanup"
-            body={{ niche }}
-            label="Limpar Irrelevantes"
-            labelShort="Limpar"
-            icon={Trash2}
-            variant="destructive"
-          />
-          <ToolbarActionButton
-            apiPath="/api/insights/collect"
-            body={{ niche }}
-            label="Coletar Insights"
-            labelShort="Insights"
-            icon={BarChart2}
-          />
-        </div>
+        <AdminToolbar niche={niche} />
       </div>
 
       {/* Content */}
