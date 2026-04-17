@@ -17,8 +17,8 @@ export interface CurateResult {
 interface CurationResponse {
   isRelevant: boolean;
   language: 'pt' | 'en' | 'es' | 'other';
-  translatedTitle: string | null;
-  translatedSummary: string | null;
+  rewrittenTitle: string | null;
+  rewrittenSummary: string | null;
 }
 
 const MAX_AGE_DAYS = 7;
@@ -80,8 +80,8 @@ export async function curateScrapedNews(niche = 'beach-tennis'): Promise<CurateR
         error_message: null,
       };
 
-      if (decision.translatedTitle) patch.title = decision.translatedTitle;
-      if (decision.translatedSummary) patch.summary = decision.translatedSummary;
+      if (decision.rewrittenTitle) patch.title = decision.rewrittenTitle;
+      if (decision.rewrittenSummary) patch.summary = decision.rewrittenSummary;
 
       await updateNewsItem(item.id, patch);
       result.curated++;
@@ -105,7 +105,7 @@ async function classifyWithGroq(
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) return null;
 
-  const contentPreview = (fullContent ?? summary ?? '').slice(0, 600);
+  const contentPreview = (fullContent ?? summary ?? '').slice(0, 2000);
   const userMessage = userPromptFn(title, summary ?? '(sem resumo)', contentPreview);
 
   try {
@@ -118,7 +118,7 @@ async function classifyWithGroq(
       body: JSON.stringify({
         model: GROQ_MODEL,
         temperature: 0.1,
-        max_tokens: 300,
+        max_tokens: 500,
         response_format: { type: 'json_object' },
         messages: [
           { role: 'system', content: systemPrompt },

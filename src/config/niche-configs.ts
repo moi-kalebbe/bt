@@ -123,26 +123,27 @@ const beachTennisConfig: NicheConfig = {
   newsChipLabel: 'BEACH TENNIS',
   newsTitlePrefixPattern: /^beach\s+tennis\s*[:\-–]\s*/i,
   newsGroqSystemPrompt:
-    'Você é um classificador de notícias esportivas. Responda apenas com JSON válido, sem markdown.',
-  newsGroqUserPrompt: (title, summary, content) => `Analise este artigo de notícia e responda com JSON puro (sem markdown):
+    'Você é um especialista em conteúdo esportivo para redes sociais. Responda apenas com JSON válido, sem markdown.',
+  newsGroqUserPrompt: (title, summary, content) => `Analise este artigo de Beach Tennis e responda com JSON puro (sem markdown):
 
-Título: ${title}
-Resumo: ${summary ?? '(sem resumo)'}
-Prévia do conteúdo: ${content}
+Título original: ${title}
+Resumo original: ${summary ?? '(sem resumo)'}
+Conteúdo: ${content}
 
 Responda apenas com JSON no formato:
 {
   "isRelevant": true ou false,
   "language": "pt" | "en" | "es" | "other",
-  "translatedTitle": "título em português" ou null,
-  "translatedSummary": "resumo em português (máx 400 chars)" ou null
+  "rewrittenTitle": "novo título em português" ou null,
+  "rewrittenSummary": "parágrafo 1.\\nparágrafo 2.\\nparágrafo 3." ou null
 }
 
 Regras:
-- isRelevant = true SOMENTE se o artigo é principalmente sobre o esporte Beach Tennis (o esporte com raquetes jogado na areia)
-- Se isRelevant = false, os campos de tradução podem ser null
-- translatedTitle e translatedSummary só devem ser preenchidos se o idioma NÃO for português
-- Se já estiver em português, ambos devem ser null`,
+- isRelevant = true SOMENTE se o artigo é principalmente sobre o esporte Beach Tennis (raquetes na areia)
+- Se isRelevant = false, rewrittenTitle e rewrittenSummary devem ser null
+- Se isRelevant = true, SEMPRE preencha rewrittenTitle e rewrittenSummary em português do Brasil
+- rewrittenTitle: máximo 10 palavras, direto ao ponto, sem prefixo "Beach Tennis:"
+- rewrittenSummary: exatamente 3 parágrafos separados por \\n, cada um com 10 a 15 palavras, o terceiro deve despertar curiosidade`,
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -248,27 +249,29 @@ const aiTechConfig: NicheConfig = {
   newsChipLabel: 'IA & TECH',
   newsTitlePrefixPattern: /^(ia|tech)\s*[:\-–&]\s*/i,
   newsGroqSystemPrompt:
-    'Você é um classificador de artigos técnicos sobre Inteligência Artificial. Responda apenas com JSON válido, sem markdown.',
-  newsGroqUserPrompt: (title, summary, content) => `Analise este artigo e responda com JSON puro (sem markdown):
+    'Você é um especialista em conteúdo tech para redes sociais. Responda apenas com JSON válido, sem markdown.',
+  newsGroqUserPrompt: (title, summary, content) => `Analise este artigo de IA/Tech e responda com JSON puro (sem markdown):
 
-Título: ${title}
-Resumo: ${summary ?? '(sem resumo)'}
-Prévia do conteúdo: ${content}
+Título original: ${title}
+Resumo original: ${summary ?? '(sem resumo)'}
+Conteúdo: ${content}
 
 Responda apenas com JSON no formato:
 {
   "isRelevant": true ou false,
   "language": "pt" | "en" | "es" | "other",
-  "translatedTitle": "título em português" ou null,
-  "translatedSummary": "resumo em português (máx 400 chars)" ou null
+  "rewrittenTitle": "novo título em português" ou null,
+  "rewrittenSummary": "parágrafo 1.\\nparágrafo 2.\\nparágrafo 3." ou null
 }
 
 Regras:
-- isRelevant = true SOMENTE se o artigo trata de tópicos técnicos de IA: LLMs, modelos de linguagem, automação com IA, agentes de IA, engenharia de prompt, MLOps, frameworks (LangChain, LlamaIndex, CrewAI, n8n, etc.), APIs de IA (OpenAI, Anthropic, Google Gemini), pesquisa em deep learning, ou ferramentas de desenvolvimento assistido por IA (Cursor, GitHub Copilot, etc.)
-- isRelevant = false para: geração de imagens/vídeos (Midjourney, Sora, DALL-E, Runway), IA em games, IA em entretenimento genérico, robótica física, veículos autônomos, ou conteúdo de hype sem profundidade técnica
-- isRelevant = false se o artigo estiver em inglês e NÃO tiver relevância direta para o público brasileiro (prefira artigos em português ou que mencionem Brasil/mercado BR)
-- translatedTitle e translatedSummary só devem ser preenchidos se o idioma NÃO for português E isRelevant = true
-- Se já estiver em português, ambos devem ser null`,
+- isRelevant = true SOMENTE se o artigo trata de tópicos técnicos de IA: LLMs, automação, agentes, engenharia de prompt, MLOps, frameworks (LangChain, n8n, etc.), APIs de IA (OpenAI, Anthropic, Gemini), ou ferramentas dev com IA (Cursor, Copilot)
+- isRelevant = false para: geração de imagem/vídeo (Midjourney, Sora, DALL-E), IA em games, entretenimento genérico, robótica física, veículos autônomos, hype sem profundidade técnica
+- isRelevant = false se o artigo for em inglês sem relevância direta para o público brasileiro
+- Se isRelevant = false, rewrittenTitle e rewrittenSummary devem ser null
+- Se isRelevant = true, SEMPRE preencha rewrittenTitle e rewrittenSummary em português do Brasil
+- rewrittenTitle: máximo 10 palavras, direto ao ponto, sem prefixo "IA:" ou "Tech:"
+- rewrittenSummary: exatamente 3 parágrafos separados por \\n, cada um com 10 a 15 palavras, o terceiro deve despertar curiosidade`,
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
