@@ -41,8 +41,13 @@ create table if not exists content_items (
   status text not null default 'discovered',
   published_to_instagram boolean not null default false,
   published_to_facebook boolean not null default false,
+  published_to_tiktok boolean not null default false,
+  published_to_youtube boolean not null default false,
+  instagram_media_id text,
   published_at_instagram timestamptz,
   published_at_facebook timestamptz,
+  published_at_tiktok timestamptz,
+  published_at_youtube timestamptz,
   selected_for_slot text,
   raw_payload jsonb,
   content_hash text,
@@ -58,6 +63,7 @@ create index if not exists idx_content_items_source on content_items(source);
 create index if not exists idx_content_items_author on content_items(author_username);
 create index if not exists idx_content_items_published_at_source on content_items(published_at_source desc);
 create index if not exists idx_content_items_created_at on content_items(created_at desc);
+create index if not exists idx_content_items_instagram_media_id on content_items(instagram_media_id) where instagram_media_id is not null;
 
 create table if not exists publish_targets (
   id uuid primary key default gen_random_uuid(),

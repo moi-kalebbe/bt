@@ -122,7 +122,14 @@ export function ToolbarActionButton({
 function buildSuccessMessage(data: Record<string, unknown>): string {
   // Mensagens específicas por endpoint
   if (data.scheduled !== undefined) return `${(data.scheduled as unknown[]).length ?? 0} vídeos agendados`;
-  if (data.collected !== undefined) return `${data.collected} insights coletados`;
+  if (data.collected !== undefined) {
+    const collected = Number(data.collected ?? 0);
+    const failed = Number(data.failed ?? 0);
+    const skippedUnavailable = Number(data.skippedUnavailable ?? 0);
+    if (skippedUnavailable > 0) return `${collected} insights coletados · ${skippedUnavailable} sem Meta ID`;
+    if (failed > 0) return `${collected} insights coletados · ${failed} falharam`;
+    return `${collected} insights coletados`;
+  }
   if (data.ran !== undefined)       return `${data.succeeded ?? data.ran} publicados`;
   if (data.ingested !== undefined)  return `${data.ingested} ingeridos`;
   if (data.deleted !== undefined)   return `${data.deleted} removidos`;

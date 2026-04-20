@@ -4,6 +4,58 @@ import type { Database } from '../client';
 
 type ContentInsert = Database['public']['Tables']['content_items']['Insert'];
 type ContentUpdate = Database['public']['Tables']['content_items']['Update'];
+type PublishPlatform = 'instagram' | 'facebook' | 'tiktok' | 'youtube';
+
+export interface PublishJobBackfillCandidate {
+  platform?: string | null;
+  response_payload: unknown;
+}
+
+export function pickInstagramMediaIdFromPublishJobs(
+  jobs: PublishJobBackfillCandidate[]
+): string | null {
+  for (const job of jobs) {
+    if (job.platform !== 'instagram') continue;
+    const payload = job.response_payload as Record<string, unknown> | null;
+    const postId = typeof payload?.postId === 'string' ? payload.postId : null;
+    if (postId && /^\d+$/.test(postId)) {
+      return postId;
+    }
+  }
+
+  return null;
+}
+
+export function buildContentPublishedUpdate(
+  platform: PublishPlatform,
+  publishedAt: string,
+  instagramMediaId?: string
+): Record<string, unknown> {
+  const updateData: Record<string, unknown> = {
+    status: 'published',
+    updated_at: publishedAt,
+  };
+
+  if (platform === 'instagram') {
+    if (!instagramMediaId) {
+      throw new Error('instagram_media_id is required to mark Instagram content as published');
+    }
+    updateData.published_to_instagram = true;
+    updateData.published_at_instagram = publishedAt;
+    updateData.instagram_media_id = instagramMediaId;
+  } else if (platform === 'facebook') {
+    updateData.published_to_facebook = true;
+    updateData.published_at_facebook = publishedAt;
+  } else if (platform === 'tiktok') {
+    updateData.published_to_tiktok = true;
+    updateData.published_at_tiktok = publishedAt;
+  } else if (platform === 'youtube') {
+    updateData.published_to_youtube = true;
+    updateData.published_at_youtube = publishedAt;
+  }
+
+  return updateData;
+}
 
 export interface CreateContentParams {
   source: string;
@@ -215,27 +267,11 @@ export async function setContentScheduled(
 
 export async function setContentPublished(
   id: string,
-  platform: 'instagram' | 'facebook' | 'tiktok' | 'youtube'
+  platform: PublishPlatform,
+  instagramMediaId?: string
 ): Promise<ContentItem> {
   const now = new Date().toISOString();
-  const updateData: Record<string, unknown> = {
-    status: 'published',
-    updated_at: now,
-  };
-
-  if (platform === 'instagram') {
-    updateData.published_to_instagram = true;
-    updateData.published_at_instagram = now;
-  } else if (platform === 'facebook') {
-    updateData.published_to_facebook = true;
-    updateData.published_at_facebook = now;
-  } else if (platform === 'tiktok') {
-    updateData.published_to_tiktok = true;
-    updateData.published_at_tiktok = now;
-  } else if (platform === 'youtube') {
-    updateData.published_to_youtube = true;
-    updateData.published_at_youtube = now;
-  }
+  const updateData = buildContentPublishedUpdate(platform, now, instagramMediaId);
 
   const { data, error } = await supabase
     .from('content_items')

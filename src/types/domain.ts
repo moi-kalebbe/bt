@@ -51,8 +51,14 @@ export interface ContentItem {
   status: ContentStatus;
   published_to_instagram: boolean;
   published_to_facebook: boolean;
+  published_to_tiktok: boolean;
+  published_to_youtube: boolean;
+  instagram_media_id: string | null;
+  instagram_performance_score: number | null;
   published_at_instagram: string | null;
   published_at_facebook: string | null;
+  published_at_tiktok: string | null;
+  published_at_youtube: string | null;
   selected_for_slot: Slot | null;
   raw_payload: unknown;
   content_hash: string | null;

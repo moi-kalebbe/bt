@@ -1,4 +1,5 @@
 import {
+  countPublishedWithoutMetaMediaId,
   getDashboardStats,
   getTopPosts,
   getPerformanceBySlot,
@@ -23,11 +24,12 @@ export default async function IntelligencePage({ searchParams }: PageProps) {
   const params = await searchParams;
   const niche = params.niche ?? 'beach-tennis';
 
-  const [stats, topPosts, bySlot, byDuration] = await Promise.all([
+  const [stats, topPosts, bySlot, byDuration, unavailableCount] = await Promise.all([
     getDashboardStats(niche),
     getTopPosts(niche, 10),
     getPerformanceBySlot(niche),
     getPerformanceByDuration(niche),
+    countPublishedWithoutMetaMediaId(niche, 24),
   ]);
 
   const hasData = stats.totalAnalyzed > 0;
@@ -40,6 +42,12 @@ export default async function IntelligencePage({ searchParams }: PageProps) {
           Métricas reais do Instagram coletadas pós-publicação — alimentam o agendamento automático.
         </p>
       </div>
+
+      {unavailableCount > 0 && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+          {unavailableCount} post{unavailableCount > 1 ? 's' : ''} publicado{unavailableCount > 1 ? 's' : ''} no Instagram ainda sem Meta ID vÃ¡lido para coletar insights.
+        </div>
+      )}
 
       {!hasData && (
         <div className="rounded-lg border border-dashed p-8 text-center">

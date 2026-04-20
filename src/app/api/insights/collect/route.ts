@@ -3,6 +3,8 @@ import { parseBody } from '@/lib/request';
 import { fetchPostInsights } from '@/infra/meta/instagram.client';
 import { getNicheSettings } from '@/infra/supabase/repositories/niche-settings.repository';
 import {
+  backfillInstagramMediaIds,
+  countPublishedWithoutMetaMediaId,
   findPublishedWithoutMetrics,
   savePostMetrics,
 } from '@/infra/supabase/repositories/instagram-metrics.repository';
@@ -27,11 +29,20 @@ export async function POST(request: NextRequest) {
   }
 
   const accessToken = settings.meta_access_token as string;
+  const { backfilled } = await backfillInstagramMediaIds(niche);
+  const skippedUnavailable = await countPublishedWithoutMetaMediaId(niche, 24);
 
   const pending = await findPublishedWithoutMetrics(niche, 24);
 
   if (pending.length === 0) {
-    return NextResponse.json({ niche, collected: 0, message: 'Nenhum post pendente de coleta' });
+    return NextResponse.json({
+      niche,
+      collected: 0,
+      failed: 0,
+      skippedUnavailable,
+      backfilled,
+      message: 'Nenhum post pendente de coleta',
+    });
   }
 
   const results: Array<{ contentItemId: string; postId: string; success: boolean; error?: string }> = [];
@@ -77,6 +88,8 @@ export async function POST(request: NextRequest) {
     pending: pending.length,
     collected: succeeded,
     failed: results.length - succeeded,
+    skippedUnavailable,
+    backfilled,
     results,
   });
 }

@@ -62,9 +62,27 @@ export async function publishVideo(
       Promise.resolve(getNicheConfig(niche)),
     ]);
 
-    // Instagram: tenta Meta Graph API primeiro, cai no Zernio se falhar
     let apiResult: ZernioResult;
-    if (platform === 'instagram' && dbSettings?.meta_access_token && dbSettings?.meta_instagram_account_id) {
+    let instagramMediaId: string | undefined;
+
+    if (platform === 'instagram') {
+      if (!dbSettings?.meta_access_token || !dbSettings?.meta_instagram_account_id) {
+        if (publishJobId) {
+          await updatePublishJobStatus(
+            publishJobId,
+            'failed',
+            undefined,
+            'Meta credentials not configured for Instagram'
+          );
+        }
+        return {
+          contentId,
+          platform,
+          success: false,
+          error: 'Meta credentials not configured for Instagram',
+        };
+      }
+
       const metaResult = await metaInstagramPost(
         dbSettings.meta_access_token,
         dbSettings.meta_instagram_account_id,
@@ -74,17 +92,13 @@ export async function publishVideo(
 
       if (metaResult.success) {
         apiResult = { success: true, postId: metaResult.postId };
+        instagramMediaId = metaResult.mediaId ?? metaResult.postId;
       } else {
-        console.warn(`[publish] Meta falhou (${metaResult.error}), tentando Zernio...`);
-        const zernioIdKey = `zernio_${platform}_id` as keyof typeof dbSettings;
-        const accountId =
-          (dbSettings?.[zernioIdKey] as string | null | undefined) ||
-          staticConfig.zernioAccountIds[platform] || undefined;
-        apiResult = await zernioPost(platform, videoUrl, caption, accountId);
-        if (!apiResult.success) {
-          apiResult.error = `Meta: ${metaResult.error} | Zernio: ${apiResult.error}`;
-          apiResult.dailyLimitReached = metaResult.dailyLimitReached && apiResult.dailyLimitReached;
-        }
+        apiResult = {
+          success: false,
+          error: metaResult.error,
+          dailyLimitReached: metaResult.dailyLimitReached,
+        };
       }
     } else {
       const zernioIdKey = `zernio_${platform}_id` as keyof typeof dbSettings;
@@ -95,11 +109,12 @@ export async function publishVideo(
     }
 
     if (apiResult.success) {
-      await setContentPublished(contentId, platform);
+      await setContentPublished(contentId, platform, instagramMediaId);
 
       if (publishJobId) {
         await updatePublishJobStatus(publishJobId, 'completed', {
           postId: apiResult.postId,
+          instagramMediaId: instagramMediaId ?? apiResult.postId,
           publishedAt: new Date().toISOString(),
         });
       }
