@@ -1,4 +1,4 @@
-import { format, isToday, isTomorrow } from 'date-fns';
+import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -24,24 +24,33 @@ const SLOT_CONFIG: Record<Slot, {
 
 const ALL_SLOTS: Slot[] = ['morning', 'midday', 'evening', 'night'];
 
-// Convert UTC ISO to Brazil date string (YYYY-MM-DD) to avoid midnight UTC crossing
+const BRT = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' });
+
+// Convert UTC ISO string to Brazil date key (YYYY-MM-DD)
 function toBrazilDate(iso: string): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date(iso));
+  return BRT.format(new Date(iso));
 }
 
+// Generate next N day keys in Brazil timezone — safe on any server timezone (UTC/Vercel)
 function getNext7Days(): string[] {
-  const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' });
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
-    d.setDate(d.getDate() + i);
-    return fmt.format(d);
+    d.setUTCDate(d.getUTCDate() + i);
+    return BRT.format(d);
   });
 }
 
+// Compare date keys directly in BRT — avoids isToday/isTomorrow relying on server local tz
 function getDayLabel(dateKey: string): string {
-  const date = new Date(dateKey + 'T12:00:00');
-  if (isToday(date))    return 'Hoje';
-  if (isTomorrow(date)) return 'Amanhã';
+  const todayKey   = BRT.format(new Date());
+  const tomorrowMs = Date.now() + 24 * 60 * 60 * 1000;
+  const tomorrowKey = BRT.format(new Date(tomorrowMs));
+
+  if (dateKey === todayKey)    return 'Hoje';
+  if (dateKey === tomorrowKey) return 'Amanhã';
+
+  // Use BRT noon (-03:00) so date-fns format reads the correct local day
+  const date = new Date(`${dateKey}T12:00:00-03:00`);
   return format(date, "EEEE, dd/MM", { locale: ptBR });
 }
 
