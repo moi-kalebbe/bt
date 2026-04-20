@@ -68,8 +68,10 @@ export interface WeeklySlot {
 }
 
 export async function getWeeklySchedule(niche: string, days = 7): Promise<WeeklySlot[]> {
-  const now = new Date();
-  const end = new Date(now);
+  // Start from midnight BRT today so already-passed slots still show
+  const todayBrazil = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+  const startOfDayBRT = new Date(`${todayBrazil}T00:00:00-03:00`);
+  const end = new Date(startOfDayBRT);
   end.setDate(end.getDate() + days);
 
   const { data, error } = await supabase
@@ -92,7 +94,7 @@ export async function getWeeklySchedule(niche: string, days = 7): Promise<Weekly
     `)
     .eq('status', 'scheduled')
     .not('slot', 'is', null)
-    .gte('scheduled_for', now.toISOString())
+    .gte('scheduled_for', startOfDayBRT.toISOString())
     .lt('scheduled_for', end.toISOString())
     .eq('content_items.niche', niche)
     .order('scheduled_for', { ascending: true });

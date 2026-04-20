@@ -95,7 +95,7 @@ export async function selectAndScheduleVideos(
   const usedContentIds = new Set<string>();
 
   for (let dayOffset = 0; dayOffset < days; dayOffset++) {
-    const dateKey = getUtcDateKey(dayOffset);
+    const dateKey = getBrazilDateKey(dayOffset);
 
     if (scheduledDays.has(dateKey)) continue; // Already has content, skip
 
@@ -191,7 +191,7 @@ async function getScheduledDays(niche: string, days: number): Promise<Set<string
   const result = new Set<string>();
   for (const row of (data ?? []) as Array<Record<string, unknown>>) {
     const sf = row['scheduled_for'] as string | null;
-    if (sf) result.add(sf.substring(0, 10));
+    if (sf) result.add(BRT_FMT.format(new Date(sf))); // BRT date, not UTC
   }
   return result;
 }
@@ -240,21 +240,25 @@ function pickSlotTime(slot: Slot, hourlyPerf: Map<number, number>): { hour: numb
   });
 }
 
-// UTC date key for a given day offset from now
-function getUtcDateKey(dayOffset: number): string {
+const BRT_FMT = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' });
+
+// Brazil date string (YYYY-MM-DD) for a day offset from now
+function getBrazilDateKey(dayOffset: number): string {
   const d = new Date();
-  d.setUTCDate(d.getUTCDate() + dayOffset);
-  return d.toISOString().substring(0, 10);
+  d.setDate(d.getDate() + dayOffset);
+  return BRT_FMT.format(d);
 }
 
-// Slot datetime for a specific day offset (uses server local time, same as original)
+// Slot datetime pinned to Brazil time (UTC-3, DST abolished 2019)
 function getSlotTimeForDay(dayOffset: number, hour: number, minute: number): string {
-  const scheduled = new Date();
-  scheduled.setDate(scheduled.getDate() + dayOffset);
-  scheduled.setHours(hour, minute, 0, 0);
-  // For day 0, if time already passed today, push to tomorrow
+  const brazilDate = getBrazilDateKey(dayOffset);
+  const hh = String(hour).padStart(2, '0');
+  const mm = String(minute).padStart(2, '0');
+  const scheduled = new Date(`${brazilDate}T${hh}:${mm}:00-03:00`);
+  // For day 0, if the slot time already passed, push it to tomorrow
   if (dayOffset === 0 && scheduled <= new Date()) {
-    scheduled.setDate(scheduled.getDate() + 1);
+    const tomorrowDate = getBrazilDateKey(1);
+    return new Date(`${tomorrowDate}T${hh}:${mm}:00-03:00`).toISOString();
   }
   return scheduled.toISOString();
 }
