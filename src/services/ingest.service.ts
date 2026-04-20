@@ -169,10 +169,10 @@ export async function ingestContent(contentId: string): Promise<IngestResult> {
 
     await updateContentR2Keys(contentId, {
       originalVideoR2Key: originalVideoKey,
+      processedVideoR2Key: originalVideoKey,
       thumbnailR2Key: thumbnailKey,
     });
 
-    await updateContentStatus(contentId, 'uploaded_r2');
     await updateContentStatus(contentId, 'ready');
 
     return { contentId, success: true, originalVideoKey, thumbnailKey };
