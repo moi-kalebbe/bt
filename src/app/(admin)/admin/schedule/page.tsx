@@ -1,4 +1,5 @@
 import { findContents, countByStatus } from '@/infra/supabase/repositories/content.repository';
+import { getWeeklySchedule } from '@/infra/supabase/repositories/publish-jobs.repository';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -19,9 +20,10 @@ export default async function SchedulePage({ searchParams }: PageProps) {
   const niche = params.niche ?? 'beach-tennis';
   const nicheLabel = NICHES.find((n) => n.id === niche)?.label ?? niche;
 
-  const [{ items: scheduledVideos }, stats] = await Promise.all([
+  const [{ items: scheduledVideos }, stats, weeklySchedule] = await Promise.all([
     findContents({ status: 'scheduled', niche, limit: 100, offset: 0 }),
     countByStatus(niche),
+    getWeeklySchedule(niche, 7),
   ]);
 
   const slots: Record<Slot, (typeof scheduledVideos)[0] | undefined> = {
@@ -113,7 +115,7 @@ export default async function SchedulePage({ searchParams }: PageProps) {
       <Separator />
 
       {/* Calendar + List */}
-      <ScheduleList videos={scheduledVideos} />
+      <ScheduleList weeklySchedule={weeklySchedule} />
     </div>
   );
 }

@@ -54,6 +54,75 @@ export async function findScheduledJobs(): Promise<PublishJob[]> {
   return (data ?? []) as PublishJob[];
 }
 
+export interface WeeklySlot {
+  publishJobId: string;
+  contentItemId: string;
+  slot: string;
+  scheduledFor: string;
+  title: string | null;
+  authorUsername: string | null;
+  thumbnailR2Key: string | null;
+  processedVideoR2Key: string | null;
+  originalVideoR2Key: string | null;
+  sourceUrl: string | null;
+}
+
+export async function getWeeklySchedule(niche: string, days = 7): Promise<WeeklySlot[]> {
+  const now = new Date();
+  const end = new Date(now);
+  end.setDate(end.getDate() + days);
+
+  const { data, error } = await supabase
+    .from('publish_jobs')
+    .select(`
+      id,
+      slot,
+      scheduled_for,
+      content_item_id,
+      content_items!inner (
+        id,
+        niche,
+        title,
+        author_username,
+        thumbnail_r2_key,
+        processed_video_r2_key,
+        original_video_r2_key,
+        source_url
+      )
+    `)
+    .eq('status', 'scheduled')
+    .not('slot', 'is', null)
+    .gte('scheduled_for', now.toISOString())
+    .lt('scheduled_for', end.toISOString())
+    .eq('content_items.niche', niche)
+    .order('scheduled_for', { ascending: true });
+
+  if (error) throw error;
+
+  // Deduplicate: multiple publish_jobs exist per item (one per target)
+  const seen = new Set<string>();
+  const result: WeeklySlot[] = [];
+  for (const row of (data ?? []) as any[]) {
+    const key = `${row.content_item_id}-${row.slot}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const ci = row.content_items;
+    result.push({
+      publishJobId: row.id,
+      contentItemId: row.content_item_id,
+      slot: row.slot,
+      scheduledFor: row.scheduled_for,
+      title: ci?.title ?? null,
+      authorUsername: ci?.author_username ?? null,
+      thumbnailR2Key: ci?.thumbnail_r2_key ?? null,
+      processedVideoR2Key: ci?.processed_video_r2_key ?? null,
+      originalVideoR2Key: ci?.original_video_r2_key ?? null,
+      sourceUrl: ci?.source_url ?? null,
+    });
+  }
+  return result;
+}
+
 export async function updatePublishJobStatus(
   id: string,
   status: string,
