@@ -17,6 +17,22 @@ const SLOT_CONFIG = {
 
 const ALL_SLOTS: Slot[] = ['morning', 'midday', 'evening', 'night'];
 
+const SLOT_HOURS: Record<Slot, [number, number]> = {
+  morning: [8,  0],
+  midday:  [11, 30],
+  evening: [18, 0],
+  night:   [21, 30],
+};
+
+function getNextSlotDate(slot: Slot): string {
+  const [hour, minute] = SLOT_HOURS[slot];
+  const now = new Date();
+  const slotTime = new Date(now);
+  slotTime.setHours(hour, minute, 0, 0);
+  if (slotTime <= now) slotTime.setDate(slotTime.getDate() + 1);
+  return format(slotTime, 'yyyy-MM-dd');
+}
+
 function getDateLabel(dateKey: string): string {
   const date = new Date(dateKey + 'T12:00:00');
   if (isToday(date)) return 'Hoje';
@@ -36,14 +52,16 @@ export function ScheduleList({ videos }: { videos: ContentItem[] }) {
     );
   }
 
-  // Group by date (yyyy-MM-dd from updated_at)
+  // Group by next scheduled publication date (derived from slot time, not updated_at)
   const byDate = new Map<string, ContentItem[]>();
   for (const video of videos) {
-    const dateKey = format(new Date(video.updated_at), 'yyyy-MM-dd');
+    const dateKey = video.selected_for_slot
+      ? getNextSlotDate(video.selected_for_slot as Slot)
+      : format(new Date(video.updated_at), 'yyyy-MM-dd');
     if (!byDate.has(dateKey)) byDate.set(dateKey, []);
     byDate.get(dateKey)!.push(video);
   }
-  const sortedDates = [...byDate.keys()].sort((a, b) => b.localeCompare(a));
+  const sortedDates = [...byDate.keys()].sort((a, b) => a.localeCompare(b));
 
   return (
     <div>
