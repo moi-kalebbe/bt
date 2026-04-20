@@ -427,3 +427,32 @@ export async function findPublishedWithoutMetrics(
       niche: item.niche,
     }));
 }
+
+// Returns Map<utcHour(0-23), avgEngagementRate> for A/B time selection
+export async function getPerformanceByHour(niche: string): Promise<Map<number, number>> {
+  const { data } = await supabase
+    .from('instagram_post_metrics')
+    .select(`
+      engagement_rate,
+      content_items!inner(published_at_instagram, niche)
+    `)
+    .eq('niche', niche)
+    .not('engagement_rate', 'is', null);
+
+  const byHour = new Map<number, number[]>();
+  for (const row of (data ?? []) as Array<Record<string, unknown>>) {
+    const ci = row['content_items'] as Record<string, unknown> | null;
+    const publishedAt = ci?.['published_at_instagram'] as string | null;
+    if (!publishedAt) continue;
+    const hour = new Date(publishedAt).getUTCHours();
+    const eng = Number(row['engagement_rate']);
+    if (!byHour.has(hour)) byHour.set(hour, []);
+    byHour.get(hour)!.push(eng);
+  }
+
+  const result = new Map<number, number>();
+  for (const [hour, engs] of byHour) {
+    result.set(hour, engs.reduce((a, b) => a + b, 0) / engs.length);
+  }
+  return result;
+}
